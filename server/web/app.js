@@ -188,7 +188,7 @@
       const dt = new Date(d.date + "T12:00");
       return `<div class="day"><span>${dt.toLocaleDateString([], { weekday: "short" })}</span><span>${d.icon}</span><b>${d.hi}°</b><span>${d.lo}°</span></div>`;
     }).join("");
-    el.innerHTML = `<span class="now">${c.icon} ${c.temp}°</span><span><span class="where">${esc(w.location || "")}</span> · ${esc(c.label)} · feels ${c.feels}° · wind ${c.wind} mph</span>${days}`;
+    el.innerHTML = `<span class="now">${c.icon} ${c.temp}°</span><span><span class="where">${esc(w.location || "")}</span> · ${esc(c.label)} · feels ${c.feels}°</span>${days}`;
   }
 
   // ---------- calendar ----------
@@ -275,6 +275,9 @@
     }
     $("#today-inner").innerHTML = html;
     requestAnimationFrame(anchorToday);
+    const majors = majorAlerts();
+    $("#major-strip").hidden = !majors.length;
+    $("#major-strip").innerHTML = majors.map((a) => `<div class="mj ${a.level}"><b>${esc(a.title)}</b><span>${esc(a.body)}</span></div>`).join("");
     const cols = [], nDays = data.config?.week_days || 5;
     for (let i = 0; i < nDays; i++) {
       const d = new Date(now); d.setDate(now.getDate() + i); d.setHours(0, 0, 0, 0);
@@ -420,15 +423,15 @@
     const now = new Date(), hrs = (w.hourly || []).filter((h) => new Date(h.time) >= new Date(now - 3600e3)).slice(0, 24);
     const box = $("#wx-chart");
     if (!box.clientWidth || !box.clientHeight) { requestAnimationFrame(renderWeatherPage); return; } // laid out next frame
-    const W = box.clientWidth, H = box.clientHeight, padL = 44, padR = 20, padT = 52, padB = 46;
-    box.dataset.size = `${W}x${H}`;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const W = box.clientWidth, H = box.clientHeight, padL = 2 * rem, padR = rem, padT = 2.4 * rem, padB = 2.1 * rem;
     const temps = hrs.map((h) => h.temp), lo = Math.min(...temps) - 4, hi = Math.max(...temps) + 4;
     const x = (i) => padL + (i / Math.max(1, hrs.length - 1)) * (W - padL - padR);
     const y = (t) => padT + (1 - (t - lo) / (hi - lo)) * (H - padT - padB);
     const bw = (W - padL - padR) / Math.max(1, hrs.length) * 0.7;
     const bars = hrs.map((h, i) => `<rect class="pop" x="${x(i) - bw / 2}" y="${H - padB - (h.pop / 100) * (H - padT - padB)}" width="${bw}" height="${(h.pop / 100) * (H - padT - padB)}" rx="3"/>`).join("");
     const line = `<path class="temp" d="M${hrs.map((h, i) => `${x(i).toFixed(1)},${y(h.temp).toFixed(1)}`).join(" L")}"/>`;
-    const labels = hrs.map((h, i) => i % 3 === 0 ? `<text x="${x(i)}" y="${H - 14}" text-anchor="middle">${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</text><text class="t" x="${x(i)}" y="${y(h.temp) - 12}" text-anchor="middle">${h.temp}°</text><text x="${x(i)}" y="${y(h.temp) - 34}" text-anchor="middle" font-size="22">${h.icon}</text>` : "").join("");
+    const labels = hrs.map((h, i) => i % 3 === 0 ? `<text x="${x(i)}" y="${H - 0.6 * rem}" text-anchor="middle">${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</text><text class="t" x="${x(i)}" y="${y(h.temp) - 0.55 * rem}" text-anchor="middle">${h.temp}°</text><text class="ico" x="${x(i)}" y="${y(h.temp) - 1.55 * rem}" text-anchor="middle">${h.icon}</text>` : "").join("");
     $("#wx-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block"><line class="grid" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>${bars}${line}${labels}</svg>`;
     $("#wx-days").innerHTML = (w.daily || []).map((d, i) => {
       const dt = new Date(d.date + "T12:00");
@@ -442,7 +445,6 @@
   let flashing = null, flashTimer = null;
   function showAlertBar(alerts) {
     const bar = $("#alert-bar");
-    alerts = [...majorAlerts(), ...alerts];
     bar.hidden = !alerts.length;
     bar.innerHTML = alerts.map((a) => `<div class="ab ${esc(a.level || "info")}${a.major ? " major" : ""}"><b>${esc(a.title)}</b><span>${esc((a.body || "").split("\n")[0].slice(0, 90))}</span></div>`).join("");
   }
@@ -527,9 +529,6 @@
   }, true);
 
   let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => render(current), 200); });
-  if (window.ResizeObserver) new ResizeObserver(() => { // redraw the chart only when its box really changed size
-    const box = $("#wx-chart"); if (current === "weather" && box.dataset.size !== `${box.clientWidth}x${box.clientHeight}`) renderWeatherPage();
-  }).observe($("#wx-chart"));
 
   function render(page) {
     if (page === "calendar") renderCalendar();

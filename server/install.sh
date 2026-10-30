@@ -46,7 +46,8 @@ Description=hermdbw collectors (calendar, weather, brief, markets, rss, xtrends,
 [Service]
 Type=oneshot
 WorkingDirectory=$HERE/collectors
-ExecStart=$PY $HERE/collectors/run_all.py calendar weather brief markets rss xtrends fng   # xtrends is a no-op when x_api.trends is on
+# xtrends is a no-op when x_api.trends is on (a comment on the ExecStart line itself would be passed as arguments)
+ExecStart=$PY $HERE/collectors/run_all.py calendar weather brief markets rss xtrends fng
 UNIT
 cat > "$UNIT_DIR/hermdbw-collect.timer" <<'UNIT'
 [Unit]

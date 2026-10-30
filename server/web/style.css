@@ -31,9 +31,10 @@ h2 { font-size: 1.1rem; font-weight: 600; letter-spacing: .02em; color: var(--in
   gap: var(--gap); padding: .8rem var(--pad) .45rem; border-bottom: 1px solid var(--line);
 }
 #clock { display: flex; flex-direction: column; line-height: 1; }
-#time { font-size: 3.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+#time { font-size: 3.2rem; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 5.2em; }  /* room for "12:00 AM": the header must not grow at 10:00 */
 #date { font-size: 1rem; color: var(--ink-2); margin-top: 6px; }
-#weather-strip { display: flex; gap: 22px; align-items: center; justify-content: center; font-size: 1rem; }
+#weather-strip { display: flex; gap: 22px; align-items: center; justify-content: center; font-size: 1rem; min-width: 0; height: 3.4rem; }
+#weather-strip > span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }  /* one line, always */
 #weather-strip .now { font-size: 1.9rem; font-weight: 600; color: var(--ink); }
 #weather-strip .day { display: flex; flex-direction: column; align-items: center; font-size: .8rem; color: var(--ink-2); }
 #weather-strip .day b { color: var(--ink); font-weight: 600; }
@@ -81,7 +82,11 @@ body.init .page { transition: none; }
 .ev.major .ttl::after { content: "reminder"; font-size: .65rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--surface-0); background: var(--warning); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
 .chip.major { background: rgba(250, 178, 25, .14); border-left-width: 6px; }
 .chip.major .cn { color: var(--warning); }
-.alert-bar .ab.major b { color: var(--warning); } .alert-bar .ab.major.urgent b { color: var(--critical); }
+.major-strip { margin: calc(-1 * var(--gap) + .4rem) 0 var(--gap); display: grid; gap: .3rem; }
+.major-strip .mj { display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: baseline; padding: .3rem .7rem; border-left: 4px solid var(--warning); border-radius: 6px; background: rgba(250, 178, 25, .12); font-size: .9rem; }
+.major-strip .mj b { color: var(--warning); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.major-strip .mj.urgent { border-color: var(--critical); background: rgba(208, 59, 59, .14); } .major-strip .mj.urgent b { color: #ff7a7a; }
+.major-strip .mj span { color: var(--ink-2); font-size: .8rem; white-space: nowrap; }
 
 .agenda { overflow: hidden; flex: 1; min-height: 0; position: relative; }
 .agenda::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: linear-gradient(transparent, var(--surface-0)); pointer-events: none; }
@@ -202,11 +207,14 @@ body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed p
 .wx-label { font-size: 1.4rem; color: var(--ink-2); }
 .wx-meta { font-size: .95rem; }
 .wx-hourly { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-#wx-chart { flex: 1; min-height: 8rem; min-width: 0; overflow: hidden; }  /* may shrink: the fixed-size svg inside must not pin the box */
+/* Fixed height on purpose: the chart is drawn once per data refresh and must not redraw when something
+   above it (an alert bar, a wrapped header line) nudges the layout. The card stretches; the chart does not. */
+#wx-chart { flex: none; height: 12.5rem; min-width: 0; overflow: hidden; }
 #wx-chart svg { display: block; }
+#wx-chart text.ico { font-size: 1rem; }
 #wx-chart .temp { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; }
 #wx-chart .pop { fill: #3987e5; opacity: .25; }
-#wx-chart text { fill: var(--ink-2); font-size: 15px; }
+#wx-chart text { fill: var(--ink-2); font-size: .68rem; }
 #wx-chart text.t { fill: var(--ink); font-weight: 600; }
 #wx-chart .grid { stroke: var(--line); stroke-width: 1; }
 .wx-days { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: .55rem; align-self: end; }
