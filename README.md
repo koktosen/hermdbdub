@@ -51,9 +51,11 @@ HDMI for the **wall**, and optionally a Hermes agent on the server.
 git clone https://github.com/koktosen/hermdbdub && cd hermdbdub
 bash server/install.sh            # venv, config.yaml from the example, systemd --user units, `wallctl`
 ```
-Then edit `server/config.yaml`: set `location.lat/lon` and paste your calendar URLs (the comments say where each one
-comes from), or let your agent do it later. Open port 8470 to your LAN/tailnet if you run a firewall. Visit
-`http://<server>:8470/` from any browser — the wall is just a web page.
+Then open **`http://<server>:8470/setup`** — a plain, friendly page that explains what the wall is and asks the
+handful of things only you know (your city, Wi-Fi for the Pi, your calendar links). If you have a Hermes agent, tell it
+"set up my wall" first and it pre-fills everything it already knows; you finish the rest in the browser. The page ends
+with the exact commands for the Pi. (Prefer YAML? `server/config.yaml` is fully commented.) Open port 8470 to your
+LAN/tailnet if you run a firewall. The wall itself is `http://<server>:8470/` — just a web page.
 
 **2. Wall (Raspberry Pi)**
 Flash Raspberry Pi OS **Lite** (32-bit for Pi 1/2, 64-bit for Pi 3 and newer) with Raspberry Pi Imager, enabling SSH
@@ -70,6 +72,11 @@ bash hermes/install-hermes.sh     # installs the `wall-brief` skill + creates th
 Put the printed job ids into `server/config.yaml`, install Piper and set `piper_voice`, and start a new chat with your
 agent so it picks up the skill. From then on: "put my work calendar on the wall", "drop the crypto fear tile",
 "play my brief on the wall". See [`hermes/README.md`](hermes/README.md).
+
+## The setup page
+![Setup page](docs/img/setup.png)
+
+Plain questions, honest explanations, and a badge on every field saying whether your assistant filled it, you did, or it's still needed. Calendar links are tested the moment they're pasted. The page ends with the exact commands for the Pi, or you tell your assistant to do them. Design notes: [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
 
 ## Make it yours
 

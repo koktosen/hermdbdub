@@ -8,11 +8,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
+DATA = Path(os.environ.get("HERMDBW_DATA", ROOT / "data"))
 
 
 def load_config() -> dict:
-    with open(ROOT / "config.yaml") as f:
+    with open(os.environ.get("HERMDBW_CONFIG", ROOT / "config.yaml")) as f:
         return yaml.safe_load(f) or {}
 
 

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up your wall</title>
+<link rel="stylesheet" href="setup.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <h1>Set up your wall</h1>
+    <p class="lead">This is a display for the things you'd otherwise check on your phone: every calendar you have in one
+      place, the weather, markets, headlines, and a morning brief your assistant writes and reads out loud. It runs on
+      a small computer behind your TV and gets everything from <em>this</em> computer, the one serving this page.</p>
+    <p class="lead muted">How it works, honestly: this computer collects the data and keeps it on your own network. The screen
+      just shows a web page from here. Nothing is sent to anyone else. If you want the wall somewhere other than
+      home, it needs a way to reach this computer — that's what the "tailnet" step is for.</p>
+    <div id="agent-note" class="note" hidden></div>
+    <div class="progress"><div id="bar"></div></div>
+  </header>
+
+  <section class="card" data-step="hardware">
+    <h2>1 · The small computer</h2>
+    <p>Which board will sit behind the TV? This decides which system image to flash and a few settings.</p>
+    <div class="grid2">
+      <label>Board
+        <select name="pi_model">
+          <option value="">choose…</option>
+          <option value="pi5">Raspberry Pi 5</option><option value="pi4">Raspberry Pi 4 / 400</option>
+          <option value="pi3">Raspberry Pi 3</option><option value="pizero2">Raspberry Pi Zero 2 W</option>
+          <option value="pi2">Raspberry Pi 2</option><option value="pi1">Raspberry Pi 1 / Zero (slow, works)</option>
+          <option value="other">Other Linux mini PC</option>
+        </select></label>
+      <label>Name for it <input name="pi_hostname" placeholder="wall" autocomplete="off"></label>
+      <label>Login user <input name="pi_user" placeholder="wall" autocomplete="off"></label>
+      <label>Login password <input name="pi_password" type="password" placeholder="choose one" autocomplete="new-password"></label>
+    </div>
+    <p class="hint">Pi 1 and 2 have no Wi-Fi built in — plan on a cable or a USB Wi-Fi adapter for those.</p>
+  </section>
+
+  <section class="card" data-step="network">
+    <h2>2 · Network</h2>
+    <p>So the board can get online the first time it boots, without a keyboard.</p>
+    <div class="grid2">
+      <label>Wi-Fi name <input name="wifi_ssid" autocomplete="off"></label>
+      <label>Wi-Fi password <input name="wifi_password" type="password" autocomplete="new-password"></label>
+    </div>
+    <p>Want the wall to work away from home, or on a different network than this computer? Then both need to be on a
+      private network of your own — a <strong>tailnet</strong>. If you don't know what that is, choose "same network" for now;
+      you can add it later.</p>
+    <div class="grid2">
+      <label>Connection
+        <select name="tailnet_kind">
+          <option value="lan">Same home network as this computer</option>
+          <option value="tailscale">Tailscale</option>
+          <option value="headscale">Headscale (self-hosted)</option>
+        </select></label>
+      <label>Headscale login server <input name="tailnet_login_server" placeholder="https://…" autocomplete="off"></label>
+    </div>
+  </section>
+
+  <section class="card" data-step="place">
+    <h2>3 · Where you are</h2>
+    <p>For weather, sunrise and sunset, and the clock. Type a city and pick the right one.</p>
+    <div class="grid2">
+      <label>City <input name="city" placeholder="Tokyo" autocomplete="off"><div id="geo" class="choices"></div></label>
+      <div><div class="kv">Chosen: <b id="loc-name">—</b></div><div class="kv muted" id="loc-detail"></div></div>
+    </div>
+  </section>
+
+  <section class="card" data-step="show">
+    <h2>4 · What to show</h2>
+    <p>Untick anything you don't care about. You can change all of this later by asking your assistant.</p>
+    <div class="grid3">
+      <fieldset><legend>Pages</legend>
+        <label><input type="checkbox" name="pages" value="calendar" checked> Calendar</label>
+        <label><input type="checkbox" name="pages" value="feed" checked> Feed (markets, headlines, X)</label>
+        <label><input type="checkbox" name="pages" value="weather" checked> Weather</label></fieldset>
+      <fieldset><legend>Little tiles on every page</legend>
+        <label><input type="checkbox" name="dock_tiles" value="upnext" checked> Up next</label>
+        <label><input type="checkbox" name="dock_tiles" value="hours" checked> Next hours of weather</label>
+        <label><input type="checkbox" name="dock_tiles" value="fng" checked> Crypto fear &amp; greed</label>
+        <label><input type="checkbox" name="dock_tiles" value="host" checked> This computer's health</label></fieldset>
+      <fieldset><legend>Markets</legend>
+        <label><input type="checkbox" name="ticker_rows" value="crypto" checked> Crypto row</label>
+        <label><input type="checkbox" name="ticker_rows" value="stocks" checked> Stocks row</label>
+        <label><input type="checkbox" name="marquees" value="ticker" checked> Scrolling market tape</label>
+        <label><input type="checkbox" name="marquees" value="news" checked> Scrolling headline tape</label></fieldset>
+    </div>
+    <label>Headlines from (one RSS link per line, "Name | URL")
+      <textarea name="rss_text" rows="3" placeholder="Hacker News | https://hnrss.org/frontpage"></textarea></label>
+  </section>
+
+  <section class="card" data-step="calendars">
+    <h2>5 · Your calendars</h2>
+    <p>This is the one thing nobody can fetch for you: each calendar has a private link that only you can see when logged
+      in. Paste each one here. It is tested the moment you paste it.</p>
+    <details><summary>Where to find the link</summary>
+      <ul>
+        <li><b>Google Calendar</b> — Settings → pick the calendar → "Secret address in iCal format". One per calendar.</li>
+        <li><b>Proton Calendar</b> — the calendar's menu → Share → Share via link → create. Copy the link.</li>
+        <li><b>iCloud</b> — on icloud.com or the Mac Calendar app, share the calendar as a Public Calendar; copy the <code>webcal://</code> link.</li>
+        <li><b>Outlook / Office 365</b> — Settings → Calendar → Shared calendars → Publish → copy the ICS link.</li>
+        <li><b>Nextcloud, Fastmail, others</b> — any "subscribe", "ICS" or "webcal" link works.</li>
+      </ul>
+      <p class="hint">Keep these private: anyone with the link can read that calendar. They are stored only on this computer.</p>
+    </details>
+    <div id="cals"></div>
+    <button type="button" id="add-cal" class="ghost">+ another calendar</button>
+  </section>
+
+  <section class="card" data-step="look">
+    <h2>6 · The weather page's backdrop</h2>
+    <p>The conditions panel sits on a photo of your city that changes with the sky and the time of day.</p>
+    <label class="radio"><input type="radio" name="backdrops" value="agent" checked> Let my assistant generate pictures of <span id="bd-city">my city</span> (needs an assistant with an image tool)</label>
+    <label class="radio"><input type="radio" name="backdrops" value="own"> I'll supply my own (the page will tell you the file names)</label>
+    <label class="radio"><input type="radio" name="backdrops" value="none"> No photo, just the dark panel</label>
+  </section>
+
+  <section class="card" data-step="agent">
+    <h2>7 · Your assistant</h2>
+    <p>Optional. With a Hermes agent on this computer, the wall gets a daily brief in its voice, flash alerts
+      ("trip next week — pack a jacket"), and you can change the wall by chatting. Without one, everything else still works.</p>
+    <div class="grid2">
+      <label>Assistant's name on the wall <input name="agent_name" placeholder="Hermes" autocomplete="off"></label>
+      <label>Show what's trending on X (needs an X developer login, set up later)
+        <select name="x_enabled"><option value="false">Not now</option><option value="true">Yes</option></select></label>
+    </div>
+  </section>
+
+  <section class="card" data-step="finish">
+    <h2>8 · Finish</h2>
+    <p id="missing" class="hint"></p>
+    <button type="button" id="apply" class="primary">Save and build my wall</button>
+    <div id="result" class="result" hidden></div>
+  </section>
+</main>
+<script src="setup.js"></script>
+</body>
+</html>

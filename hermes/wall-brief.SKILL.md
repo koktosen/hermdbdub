@@ -16,6 +16,26 @@ every page. The server side lives at `~/dev/hermdbw/server/` on this machine (co
 freedom here: read the data, edit the config, run the collectors, use your judgment. This note says where things are;
 it is not a list of permitted commands.
 
+## Setup (new wall, or re-configuring)
+The dashboard hosts a setup page at `http://127.0.0.1:8470/setup` (same host as the wall). Fill in what you already
+know about the owner so they only answer what is left:
+```bash
+curl -s http://127.0.0.1:8470/api/setup                               # what is answered / missing (secrets redacted)
+curl -s -X POST http://127.0.0.1:8470/api/setup -H 'Content-Type: application/json' -d '{
+  "city": "Tokyo", "agent_name": "Hermes", "tailnet": {"kind": "headscale", "login_server": "https://hs.example.com"},
+  "pi_model": "pi4", "pi_hostname": "wall", "show": {"pages": ["calendar","feed","weather"], "dock_tiles": ["upnext","hours","host"], "ticker_rows": ["crypto"]} }'
+curl -s -X POST http://127.0.0.1:8470/api/setup/validate -d '{"url": "https://…/basic.ics"}'   # test a calendar link
+curl -s -X POST http://127.0.0.1:8470/api/setup/apply                                            # write config.yaml + run collectors
+```
+Rules: fill only what you are confident of (city, tailnet, their name, what they said they care about). Never guess
+Wi-Fi passwords or calendar links — tell them where to click instead (the page shows per-provider paths). Then say:
+"Open http://<server>:8470/setup — I filled in N things; you have M left."
+
+**Backdrops for their city.** If they choose "generate for my city", make 13 images with your image tool and save them:
+`server/web/img/location.jpg` (fallback) and `server/web/img/weather/<cond>-<day|night>.jpg` for
+`clear partly overcast fog rain storm`. Prompt shape: "wide cinematic photograph of <city> skyline, <sky description>,
+no text". Keep each under ~400 KB (1280 px wide JPEG). If they would rather supply their own, tell them the same paths.
+
 ## The data — use it to think ahead
 Collectors write JSON every 1–5 min to `~/dev/hermdbw/server/data/`:
 - `calendar.json` — ALL the owner's calendars merged, next 14 days, with source + colour, all-day flags, locations,

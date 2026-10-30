@@ -15,6 +15,10 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*a, directory=str(ROOT / "web"), **kw)
 
     def do_GET(self):
+        if self.path.split("?")[0] in ("/setup", "/setup/"):
+            self.path = "/setup.html"
+        if self.path.startswith("/api/setup"):
+            return self.setup_api()
         if self.path.startswith("/api/trigger"):
             return self.trigger()
         if self.path.startswith("/api/alert"):
@@ -22,6 +26,8 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
+        if self.path.startswith("/api/setup"):
+            return self.setup_api()
         if self.path.startswith("/api/trigger"):
             return self.trigger()
         if self.path.startswith("/api/alert"):
@@ -58,6 +64,30 @@ class Handler(SimpleHTTPRequestHandler):
             alerts = []
         path.write_text(json.dumps(alerts))
         payload = json.dumps({"alerts": alerts})
+        self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
+        self.wfile.write(payload.encode())
+
+    def setup_api(self):
+        """Setup API: GET /api/setup · POST /api/setup {answers…} (header X-Source: agent|browser) ·
+        POST /api/setup/validate {url} · POST /api/setup/apply · GET /api/setup/cloudinit"""
+        import json
+        import lib_setup as ls
+        from urllib.parse import urlparse
+        sub = urlparse(self.path).path.removeprefix("/api/setup").strip("/")
+        body = {}
+        if self.command == "POST":
+            n = int(self.headers.get("Content-Length") or 0)
+            try: body = json.loads(self.rfile.read(n) or b"{}")
+            except json.JSONDecodeError: return self.send_error(400, "body must be JSON")
+        state = ls.load()
+        if sub == "" and self.command == "GET": out = ls.redacted(state)
+        elif sub == "" and self.command == "POST":
+            ls.save(ls.update(state, body, self.headers.get("X-Source", "browser"))); out = ls.redacted(ls.load())
+        elif sub == "validate": out = ls.validate_calendar(body.get("url", ""))
+        elif sub == "apply": out = ls.apply(state)
+        elif sub == "cloudinit": out = ls.cloudinit(state)
+        else: return self.send_error(404)
+        payload = json.dumps(out)
         self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
         self.wfile.write(payload.encode())
 
