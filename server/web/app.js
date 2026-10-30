@@ -28,7 +28,11 @@
       void to.offsetWidth; // flush so the start position applies before the transition
       from.classList.remove("active"); from.classList.add(dir > 0 ? "exit-left" : "exit-right");
       to.classList.remove("from-left"); to.classList.add("active");
-      sliding = true; setTimeout(() => { sliding = false; from.classList.remove("exit-left", "exit-right"); }, 600);
+      sliding = true;
+      setTimeout(() => {   // snap the hidden page back to its resting state without animating it
+        sliding = false; from.classList.add("settle"); from.classList.remove("exit-left", "exit-right");
+        requestAnimationFrame(() => requestAnimationFrame(() => from.classList.remove("settle")));
+      }, 600);
     } else {
       from.classList.remove("active"); to.classList.add("active");
     }
@@ -432,7 +436,7 @@
     const bars = hrs.map((h, i) => `<rect class="pop" x="${x(i) - bw / 2}" y="${H - padB - (h.pop / 100) * (H - padT - padB)}" width="${bw}" height="${(h.pop / 100) * (H - padT - padB)}" rx="3"/>`).join("");
     const line = `<path class="temp" d="M${hrs.map((h, i) => `${x(i).toFixed(1)},${y(h.temp).toFixed(1)}`).join(" L")}"/>`;
     const labels = hrs.map((h, i) => i % 3 === 0 ? `<text x="${x(i)}" y="${H - 0.6 * rem}" text-anchor="middle">${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</text><text class="t" x="${x(i)}" y="${y(h.temp) - 0.55 * rem}" text-anchor="middle">${h.temp}°</text><text class="ico" x="${x(i)}" y="${y(h.temp) - 1.55 * rem}" text-anchor="middle">${h.icon}</text>` : "").join("");
-    $("#wx-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block"><line class="grid" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>${bars}${line}${labels}</svg>`;
+    $("#wx-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block"><line class="grid" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>${bars}${line}${labels}<text class="legend" x="${W - padR}" y="${0.9 * rem}" text-anchor="end">line = temperature · bars = chance of rain</text></svg>`;
     $("#wx-days").innerHTML = (w.daily || []).map((d, i) => {
       const dt = new Date(d.date + "T12:00");
       const t = (s) => new Date(s).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });

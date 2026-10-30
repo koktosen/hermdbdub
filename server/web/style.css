@@ -50,15 +50,15 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .page {
   position: absolute; inset: 0; padding: var(--gap) var(--pad); display: grid;
   visibility: hidden; transform: translateX(100%);
-  transition: transform .55s cubic-bezier(.4, 0, .2, 1), visibility 0s linear .55s;
+  transition: transform .55s cubic-bezier(.4, 0, .2, 1), opacity .4s ease-in, visibility 0s linear .55s;
 }
-.page.active { visibility: visible; transform: translateX(0); transition-delay: 0s; }
-body.init .page { transition: none; }
-.page.exit-left { visibility: visible; transform: translateX(-100%); }
-.page.exit-right { visibility: visible; transform: translateX(100%); }
+.page.active { visibility: visible; transform: translateX(0); transition-delay: 0s; z-index: 2; }
+body.init .page, .page.settle { transition: none; }
+/* The leaving page drops straight down and fades, under the arriving one, so the two motions never read as one. */
+.page.exit-left, .page.exit-right { visibility: visible; transform: translateY(45%); opacity: 0; z-index: 1; }
 .page.from-left { transform: translateX(-100%); }
 #page-calendar { grid-template-columns: 1.6fr 3.4fr; gap: var(--gap); }
-#page-weather { grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr); grid-template-rows: minmax(0, 1fr) auto; gap: var(--gap); }
+#page-weather { grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr); grid-template-rows: auto minmax(0, 1fr); gap: var(--gap); }
 .col-left, .col-right { min-height: 0; display: flex; flex-direction: column; }
 
 .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: .8rem 1rem; }
@@ -209,16 +209,17 @@ body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed p
 .wx-hourly { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 /* Fixed height on purpose: the chart is drawn once per data refresh and must not redraw when something
    above it (an alert bar, a wrapped header line) nudges the layout. The card stretches; the chart does not. */
-#wx-chart { flex: none; height: 12.5rem; min-width: 0; overflow: hidden; }
+#wx-chart { flex: none; height: 10.5rem; min-width: 0; overflow: hidden; }
 #wx-chart svg { display: block; }
 #wx-chart text.ico { font-size: 1rem; }
 #wx-chart .temp { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; }
-#wx-chart .pop { fill: #3987e5; opacity: .25; }
+#wx-chart .pop { fill: #3987e5; opacity: .55; }
+#wx-chart text.legend { fill: var(--ink-3); font-size: .6rem; }
 #wx-chart text { fill: var(--ink-2); font-size: .68rem; }
 #wx-chart text.t { fill: var(--ink); font-weight: 600; }
 #wx-chart .grid { stroke: var(--line); stroke-width: 1; }
-.wx-days { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: .55rem; align-self: end; }
-.wx-day { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: .55rem .65rem; display: flex; flex-direction: column; gap: 4px; }
+.wx-days { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: .55rem; min-height: 0; }
+.wx-day { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: .55rem .65rem; display: flex; flex-direction: column; justify-content: space-evenly; gap: 4px; min-height: 0; overflow: hidden; }
 .wx-day .d { font-weight: 600; color: var(--ink-2); display: flex; justify-content: space-between; }
 .wx-day .i { font-size: 2.2rem; line-height: 1.2; }
 .wx-day .hl { font-size: 1.2rem; display: block; border: 0; padding: 0; } .wx-day .hl small { color: var(--ink-3); font-size: .85rem; margin-left: 6px; }
