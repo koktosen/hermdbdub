@@ -1,0 +1,75 @@
+# hermdbw server configuration.
+# Copy to config.yaml (the installer does this) and keep it mode 600: calendar URLs are secrets.
+# Your Hermes agent can edit this file for you; `wallctl` validates edits (see README).
+
+timezone: America/New_York           # IANA zone used for calendar maths and weather
+
+location:                            # weather + backdrop
+  name: Home                         # label shown in the header and on the Weather page
+  lat: null                          # e.g. 40.7128  — weather stays off until lat/lon are set
+  lon: null                          # e.g. -74.0060
+  image: img/location.jpg            # fallback backdrop for the Weather conditions panel (condition-specific
+                                     # images in web/img/weather/<clear|partly|overcast|fog|rain|storm>-<day|night>.jpg win if present)
+
+calendars:                           # any iCal/ICS URL; webcal:// is accepted. Name is the key; colour optional.
+  - name: Google
+    url: ""                          # Google Calendar → Settings → <calendar> → "Secret address in iCal format"
+    color: "#3987e5"
+  - name: Proton
+    url: ""                          # Proton Calendar → Share via link (view-only)
+    color: "#d95926"
+  - name: iCloud
+    url: ""                          # iCloud Calendar → Share → Public Calendar (webcal://…)
+    color: "#199e70"
+  - name: US Holidays
+    url: "https://calendar.google.com/calendar/ical/en.usa%23holiday%40group.v.calendar.google.com/public/basic.ics"
+    color: "#c98500"
+calendar_days: 14                    # how far ahead the merged calendar looks
+
+# ---- Hermes agent (optional) ----
+agent_name: Hermes                   # how your agent is labelled on the wall
+hermes_brief_job: ""                 # id of the Hermes cron job that writes the morning brief (hermes/install-hermes.sh prints it)
+hermes_xtrends_job: ""               # id of the Hermes cron job for X trends — only used when x_api.trends is off
+piper_voice: ""                      # Piper .onnx voice for the spoken brief, e.g. ~/.local/share/piper/en_US-amy-medium.onnx (blank = text only)
+brief_window: [5, 7]                 # local hours during which the brief card pulses "brief ready"; the takeover itself is always manual
+
+# ---- Markets / feeds ----
+markets:
+  crypto: [bitcoin, ethereum, solana, hedera-hashgraph, ripple, decentraland]   # CoinGecko ids (logos are cached locally)
+  stocks: [SPY, QQQ, NVDA, AMD, AAPL, MSFT, GOOGL, AMZN, META, TSLA]            # Yahoo Finance tickers
+rss_feeds:                           # any RSS/Atom feed; newest headlines per feed
+  - {name: Hacker News, url: "https://hnrss.org/frontpage"}
+  - {name: Ars Technica, url: "https://feeds.arstechnica.com/arstechnica/index"}
+
+# ---- X (Twitter) via the official API, optional. See README "X". Metered: one request per enabled feature per run. ----
+x_api:
+  enabled: false
+  trends: true                       # /2/users/personalized_trends → "Trending on X"
+  max_trends: 12
+  mentions: false                    # your own mentions/timeline (adds data/xme.json; needs feed_columns: xme — not shown by default)
+  mentions_source: mentions          # mentions | timeline
+  max_results: 10
+  official_usage: true               # also read X's own monthly request count (needs app-only auth registered in xurl)
+  times: ["07:00", "10:00", "13:00", "16:00", "19:00"]   # when the collector runs (local time); each run = the requests above
+
+# ---- Host status tile (the server the collectors run on) ----
+services: []                         # systemd --user units to show as dots, e.g. [hermes-gateway]
+services_on_demand: []               # units whose "inactive" is normal (shown grey, not red)
+disks: ["/", "/home"]
+comfy_endpoints: []                  # ComfyUI instances to poll, e.g. ["http://127.0.0.1:8188"]
+apk_dir: ""                          # optional: a build-artifact directory; its newest entry is shown
+apk_prefix: ""                       # only entries starting with this
+printer:
+  name: Printer
+  url: ""                            # Moonraker base URL, e.g. http://192.168.1.50:7125 ; blank = skip
+
+# ---- Layout: remove or reorder anything here and the wall adapts within a minute ----
+rotate_seconds: 45                   # 0 = no auto-rotation
+layout:
+  pages: [calendar, feed, weather]   # page order; digit keys 1..n
+  rotate_pages: [calendar, feed, weather]
+  ticker_rows: [crypto, stocks]      # rows at the top of Feed
+  feed_columns: [headlines, xtrends] # Feed columns: headlines | xtrends | xme | brief
+  dock_tiles: [upnext, fng, hours, host]   # dock on every page: up-next events | crypto Fear & Greed | next hours | host status
+  marquees: [ticker, news]           # tape lines under the dock (hidden on Feed, which shows the full versions)
+  week_days: 5                       # day columns on the Calendar page

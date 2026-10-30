@@ -1,0 +1,18 @@
+#cloud-config
+# Drop on the boot partition as `user-data` before first boot (Raspberry Pi OS Trixie+ uses cloud-init).
+hostname: wall
+manage_etc_hosts: true
+timezone: America/New_York
+ssh_pwauth: true
+users:
+- name: pi
+  gecos: Wall
+  shell: /bin/bash
+  groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
+  lock_passwd: false
+  passwd: "$6$REPLACE_WITH_openssl_passwd_-6_OUTPUT"
+  sudo: ALL=(ALL) NOPASSWD:ALL
+packages:
+- avahi-daemon
+runcmd:
+- [systemctl, enable, --now, ssh]

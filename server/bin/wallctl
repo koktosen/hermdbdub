@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""wallctl — safe, deterministic edits to the hermdbw dashboard config, meant to be driven by a Hermes agent
+or by hand. Every write re-validates by running the affected collector and prints a one-line result.
+
+  wallctl show [--full]                      current config (URLs redacted unless --full)
+  wallctl calendar add NAME URL [--color X]  add/replace an iCal feed (color auto-picked from the palette)
+  wallctl calendar remove NAME
+  wallctl rss add NAME URL | rss remove NAME
+  wallctl stocks set SYM [SYM...]            replace the stock tickers
+  wallctl crypto set ID [ID...]              replace crypto (CoinGecko ids, e.g. bitcoin hedera-hashgraph)
+  wallctl location set LAT LON [--name N]    weather location
+  wallctl set KEY VALUE                      scalar: rotate_seconds, brief_window, timezone, calendar_days
+  wallctl refresh [collector...]             run collectors now (default: all) and report
+  wallctl xusage                             exact count of X API requests made (today / by day / errors)
+"""
+import argparse
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+from ruamel.yaml import YAML
+
+ROOT = Path(__file__).resolve().parent.parent
+CFG = ROOT / "config.yaml"
+PALETTE = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"]
+yaml = YAML(); yaml.preserve_quotes = True; yaml.width = 4096
+
+
+def load():
+    return yaml.load(CFG.read_text())
+
+
+def save(cfg):
+    tmp = CFG.with_suffix(".yaml.tmp")
+    with open(tmp, "w") as f:
+        yaml.dump(cfg, f)
+    tmp.chmod(0o600); tmp.replace(CFG)
+
+
+def redact(url: str) -> str:
+    return re.sub(r"^((?:https?|webcal)://[^/]+/).{0,}$", r"\1…", url or "") if url else "(empty)"
+
+
+def refresh(*names) -> dict:
+    r = subprocess.run([str(ROOT / ".venv/bin/python"), str(ROOT / "collectors/run_all.py"), *names],
+                       cwd=ROOT / "collectors", capture_output=True, text=True)
+    status = json.loads((ROOT / "data/status.json").read_text()).get("collectors", {})
+    return {n: status.get(n, {"ok": False, "error": "not run"}) for n in (names or status)}
+
+
+def report(result: dict, extra: str = "") -> int:
+    bad = {k: v for k, v in result.items() if not v.get("ok")}
+    print(("OK " + extra).strip() if not bad else "FAILED " + json.dumps(bad))
+    return 1 if bad else 0
+
+
+def cmd_show(a):
+    cfg = load()
+    out = {
+        "timezone": cfg.get("timezone"), "location": dict(cfg.get("location") or {}),
+        "calendars": [{"name": c.get("name"), "color": c.get("color"), "url": c.get("url") if a.full else redact(c.get("url"))} for c in cfg.get("calendars", [])],
+        "rss_feeds": [{"name": f.get("name"), "url": f.get("url")} for f in cfg.get("rss_feeds", [])],
+        "markets": {"crypto": list(cfg.get("markets", {}).get("crypto", [])), "stocks": list(cfg.get("markets", {}).get("stocks", []))},
+        "pages": list(cfg.get("pages", [])), "rotate_pages": list(cfg.get("rotate_pages", [])), "rotate_seconds": cfg.get("rotate_seconds"),
+        "brief_window": list(cfg.get("brief_window", [])),
+    }
+    print(json.dumps(out, indent=1)); return 0
+
+
+def cmd_calendar(a):
+    cfg = load(); cals = cfg.setdefault("calendars", [])
+    if a.action == "remove":
+        before = len(cals); cals[:] = [c for c in cals if c.get("name", "").lower() != a.name.lower()]
+        if len(cals) == before: print(f"no calendar named {a.name!r}"); return 1
+        save(cfg); return report(refresh("calendar"), f"removed calendar {a.name}")
+    url = a.url.strip()
+    if not re.match(r"^(https?|webcal)://", url): print("URL must start with http(s):// or webcal://"); return 1
+    used = {c.get("color") for c in cals}
+    color = a.color or next((p for p in PALETTE if p not in used), PALETTE[len(cals) % len(PALETTE)])
+    existing = next((c for c in cals if c.get("name", "").lower() == a.name.lower()), None)
+    if existing: existing["url"] = url; existing["color"] = color
+    else: cals.append({"name": a.name, "url": url, "color": color})
+    save(cfg)
+    res = refresh("calendar")
+    cal = json.loads((ROOT / "data/calendar.json").read_text())
+    err = cal.get("errors", {}).get(a.name)
+    if err: print(f"FAILED feed {a.name}: {err}"); return 1
+    n = next((s["count"] for s in cal.get("sources", []) if s["name"] == a.name), 0)
+    return report(res, f"calendar {a.name} ({color}): {n} events in the next {cfg.get('calendar_days', 14)} days")
+
+
+def cmd_rss(a):
+    cfg = load(); feeds = cfg.setdefault("rss_feeds", [])
+    if a.action == "remove":
+        before = len(feeds); feeds[:] = [f for f in feeds if f.get("name", "").lower() != a.name.lower()]
+        if len(feeds) == before: print(f"no feed named {a.name!r}"); return 1
+        save(cfg); return report(refresh("rss"), f"removed feed {a.name}")
+    existing = next((f for f in feeds if f.get("name", "").lower() == a.name.lower()), None)
+    if existing: existing["url"] = a.url
+    else: feeds.append({"name": a.name, "url": a.url})
+    save(cfg)
+    res = refresh("rss"); rss = json.loads((ROOT / "data/rss.json").read_text())
+    err = rss.get("errors", {}).get(a.name)
+    if err: print(f"FAILED feed {a.name}: {err}"); return 1
+    n = next((len(f["items"]) for f in rss.get("feeds", []) if f["name"] == a.name), 0)
+    return report(res, f"rss {a.name}: {n} headlines")
+
+
+def cmd_stocks(a):
+    cfg = load(); cfg.setdefault("markets", {})["stocks"] = [s.upper() for s in a.symbols]
+    save(cfg); res = refresh("markets"); m = json.loads((ROOT / "data/markets.json").read_text())
+    bad = [s["symbol"] for s in m["stocks"] if s.get("error")]
+    if bad: print(f"FAILED unknown tickers: {bad}"); return 1
+    return report(res, "stocks: " + ", ".join(f"{s['symbol']} {s['change_24h']:+.1f}%" for s in m["stocks"]))
+
+
+def cmd_crypto(a):
+    cfg = load(); ids = [i.lower() for i in a.ids]
+    cfg.setdefault("markets", {})["crypto"] = ids
+    save(cfg); res = refresh("markets"); m = json.loads((ROOT / "data/markets.json").read_text())
+    got = {c["name"].lower() for c in m["crypto"]} | {c["symbol"].lower() for c in m["crypto"]}
+    if len(m["crypto"]) < len(ids): print(f"FAILED: {len(ids) - len(m['crypto'])} id(s) unknown to CoinGecko (use ids like bitcoin, ripple, hedera-hashgraph)"); return 1
+    return report(res, "crypto: " + ", ".join(f"{c['symbol']} {c['change_24h']:+.1f}%" for c in m["crypto"]))
+
+
+def cmd_location(a):
+    cfg = load(); loc = cfg.setdefault("location", {})
+    loc["lat"] = float(a.lat); loc["lon"] = float(a.lon)
+    if a.name: loc["name"] = a.name
+    save(cfg); res = refresh("weather"); w = json.loads((ROOT / "data/weather.json").read_text())
+    return report(res, f"weather at {loc.get('name')}: {w.get('current', {}).get('temp')}° {w.get('current', {}).get('label')}")
+
+
+def cmd_set(a):
+    allowed = {"rotate_seconds": int, "calendar_days": int, "timezone": str, "brief_window": "list", "rotate_pages": "list"}
+    if a.key not in allowed: print(f"key must be one of {sorted(allowed)}"); return 1
+    cfg = load()
+    if allowed[a.key] == "list": cfg[a.key] = [int(x) if x.isdigit() else x for x in re.split(r"[,\s]+", a.value.strip())]
+    else: cfg[a.key] = allowed[a.key](a.value)
+    save(cfg); return report(refresh("ops"), f"{a.key} = {cfg[a.key]}")
+
+
+def cmd_xusage(a):
+    """Exact count of X API requests this box has made (from data/x_usage.jsonl)."""
+    log = ROOT / "data/x_usage.jsonl"
+    if not log.exists(): print("no X API requests logged yet"); return 0
+    from collections import Counter
+    rows = [json.loads(l) for l in log.read_text().splitlines() if l.strip()]
+    by_day = Counter(r["t"][:10] for r in rows); errs = [r for r in rows if r["status"] != "ok"]
+    print(f"total {len(rows)} requests since {rows[0]['t'][:10]}; last 7 days:")
+    for d in sorted(by_day)[-7:]: print(f"  {d}: {by_day[d]}")
+    if errs: print(f"errors: {len(errs)}, last: {errs[-1]['t']} {errs[-1]['status']}")
+    sched = (load().get("x_api") or load().get("x_personal") or {}).get("times", [])
+    print(f"schedule: {len(sched)}/day → ~{len(sched) * 30}/month at this rate")
+    return 0
+
+
+def cmd_refresh(a):
+    return report(refresh(*a.names), "refreshed " + (", ".join(a.names) or "all"))
+
+
+p = argparse.ArgumentParser(prog="wallctl", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+sp = p.add_subparsers(dest="cmd", required=True)
+s = sp.add_parser("show"); s.add_argument("--full", action="store_true"); s.set_defaults(fn=cmd_show)
+s = sp.add_parser("calendar"); s.add_argument("action", choices=["add", "remove"]); s.add_argument("name"); s.add_argument("url", nargs="?"); s.add_argument("--color"); s.set_defaults(fn=cmd_calendar)
+s = sp.add_parser("rss"); s.add_argument("action", choices=["add", "remove"]); s.add_argument("name"); s.add_argument("url", nargs="?"); s.set_defaults(fn=cmd_rss)
+s = sp.add_parser("stocks"); s.add_argument("action", choices=["set"]); s.add_argument("symbols", nargs="+"); s.set_defaults(fn=cmd_stocks)
+s = sp.add_parser("crypto"); s.add_argument("action", choices=["set"]); s.add_argument("ids", nargs="+"); s.set_defaults(fn=cmd_crypto)
+s = sp.add_parser("location"); s.add_argument("action", choices=["set"]); s.add_argument("lat"); s.add_argument("lon"); s.add_argument("--name"); s.set_defaults(fn=cmd_location)
+s = sp.add_parser("set"); s.add_argument("key"); s.add_argument("value"); s.set_defaults(fn=cmd_set)
+s = sp.add_parser("xusage"); s.set_defaults(fn=cmd_xusage)
+s = sp.add_parser("refresh"); s.add_argument("names", nargs="*"); s.set_defaults(fn=cmd_refresh)
+a = p.parse_args()
+if a.cmd in ("calendar", "rss") and a.action == "add" and not a.url: p.error("add needs NAME URL")
+sys.exit(a.fn(a))

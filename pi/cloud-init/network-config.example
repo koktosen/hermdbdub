@@ -1,0 +1,14 @@
+# Drop on the boot partition as `network-config` (netplan v2 syntax; applied on first boot only).
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: true
+      optional: true
+  wifis:
+    wlan0:
+      dhcp4: true
+      optional: true
+      access-points:
+        "Your Wi-Fi SSID":
+          password: "your-wifi-password"

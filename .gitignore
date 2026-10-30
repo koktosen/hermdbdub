@@ -1,0 +1,10 @@
+# personal / generated
+server/config.yaml
+server/data/
+server/.venv/
+server/web/logos/
+images/
+__pycache__/
+*.pyc
+server/web/img/weather/
+server/web/img/alerts/

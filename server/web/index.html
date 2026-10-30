@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hermdbw</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+<header id="topbar">
+  <div id="clock"><span id="time">--:--</span><span id="date">loading</span><span id="fresh" class="fresh"><i></i><span>updating…</span></span></div>
+  <div id="weather-strip" class="muted">weather: not configured</div>
+  <div id="moon" class="moon"></div>
+  <nav id="tabs"></nav>
+</header>
+<div id="alert-bar" class="alert-bar" hidden></div>
+
+<main id="stage">
+  <section id="page-calendar" class="page">
+    <div class="col-left">
+      <div id="next-up" class="card hero"></div>
+      <h2>Today</h2>
+      <div id="today-list" class="agenda"></div>
+    </div>
+    <div class="col-right">
+      <div id="week-grid" class="week"></div>
+    </div>
+  </section>
+
+  <section id="page-feed" class="page">
+    <div id="ticker-crypto" class="ticker"></div>
+    <div id="ticker-stocks" class="ticker"></div>
+    <div class="feed-cols">
+      <div class="card feed-col" data-col="headlines"><h2>Headlines</h2><div class="scroll"><div id="headlines" class="scroller"></div></div></div>
+      <div class="card feed-col" data-col="xtrends"><div class="card-head"><h2>Trending on X</h2><span id="x-stamp" class="muted"></span></div><div class="scroll"><div id="xtrends" class="scroller xtrends"></div></div></div>
+      <div class="card feed-col" data-col="xme"><div class="card-head"><h2 id="xme-title">X · you</h2><span id="xme-stamp" class="muted"></span></div><div class="scroll"><div id="xme" class="scroller"></div></div></div>
+      <div class="card feed-col sadie" data-col="brief"><div class="card-head"><h2 id="brief-title">Brief</h2><span id="brief-stamp" class="muted"></span></div><div class="scroll"><div id="brief-body" class="scroller brief-body"></div></div></div>
+    </div>
+  </section>
+
+  <section id="page-weather" class="page">
+    <div class="wx-now card glass" id="wx-now">
+      <div class="wx-big"><span id="wx-icon"></span><span id="wx-temp"></span></div>
+      <div id="wx-label" class="wx-label"></div>
+      <div id="wx-meta" class="wx-meta muted"></div>
+    </div>
+    <div class="card wx-hourly"><h2>Next 24 hours</h2><div id="wx-chart"></div></div>
+    <div id="wx-days" class="wx-days"></div>
+  </section>
+
+</main>
+
+<div id="dock">
+  <div id="bottom-strip" class="bottom-strip"></div>
+  <div class="marquee" id="mq-ticker"><div class="mq-track"></div></div>
+  <div class="marquee" id="mq-news"><div class="mq-track"></div></div>
+</div>
+<div id="alert-flash" class="alert-flash" hidden>
+  <img id="af-img" alt="" hidden>
+  <div class="af-text"><div id="af-level" class="af-level"></div><div id="af-title" class="af-title"></div><div id="af-body" class="af-body"></div><div class="muted af-hint">Enter / 0 to dismiss</div></div>
+</div>
+<div id="takeover" class="takeover" hidden>
+  <div class="tk-head"><span id="tk-greeting">Good morning</span><span id="tk-date" class="muted"></span></div>
+  <div class="tk-scroll"><div id="tk-body" class="tk-body"></div></div>
+  <div class="tk-foot muted">press 0 / Enter to dismiss</div>
+  <audio id="tk-audio" preload="auto"></audio>
+</div>
+<footer id="status" class="muted"></footer>
+<script src="app.js"></script>
+</body>
+</html>
