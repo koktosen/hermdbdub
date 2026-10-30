@@ -68,8 +68,20 @@ body.init .page { transition: none; }
 .hero .title { font-size: 1.45rem; font-weight: 700; margin: 4px 0; }
 .hero .countdown { font-size: 2.3rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
 .hero .meta { color: var(--ink-2); font-size: .9rem; }
-.hero.soon .countdown { color: var(--warning); }
-.hero.now .countdown { color: var(--good); }
+.hero { position: relative; }
+.hero.mtg.soon .countdown { color: var(--warning); }
+.hero.mtg.now .countdown { color: var(--good); }
+/* Gentle pulse for meetings only: an opacity-animated overlay, so the Pi composites it without repaints. */
+.hero.mtg.soon::after, .hero.mtg.now::after { content: ""; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; animation: breathe 2.6s ease-in-out infinite; }
+.hero.mtg.soon::after { box-shadow: inset 0 0 0 2px var(--warning), 0 0 24px rgba(250, 178, 25, .45); }
+.hero.mtg.now::after { box-shadow: inset 0 0 0 2px var(--good), 0 0 28px rgba(12, 163, 12, .5); animation-duration: 2s; }
+@keyframes breathe { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+/* Must-not-miss all-day items (payroll, deadlines) */
+.ev.major .ttl { color: var(--warning); }
+.ev.major .ttl::after { content: "reminder"; font-size: .65rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--surface-0); background: var(--warning); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+.chip.major { background: rgba(250, 178, 25, .14); border-left-width: 6px; }
+.chip.major .cn { color: var(--warning); }
+.alert-bar .ab.major b { color: var(--warning); } .alert-bar .ab.major.urgent b { color: var(--critical); }
 
 .agenda { overflow: hidden; flex: 1; min-height: 0; position: relative; }
 .agenda::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: linear-gradient(transparent, var(--surface-0)); pointer-events: none; }

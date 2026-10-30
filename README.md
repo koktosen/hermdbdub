@@ -18,8 +18,10 @@ Electron, no build step, and no API keys for the basics.
 
 ## What's on the wall
 
-- **Calendar** — next-up countdown, today's agenda that keeps pace with the clock (finished events slide off the top)
-  and rolls into the next days, and a five-day grid merging every iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
+- **Calendar** — next-up countdown that turns yellow and gently pulses for meetings and calls (never for workouts or
+  chores), must-not-miss all-day items such as payroll or deadlines flagged in the agenda, the grid and a header
+  banner, today's agenda that keeps pace with the clock (finished events slide off the top) and rolls into the next
+  days, and a five-day grid merging every iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
 - **Feed** — crypto and stock tickers with 24 h change and sparklines, headlines from your RSS feeds, and what's trending
   on X from your own account.
 - **Weather** — current conditions on a frosted-glass panel over a photo that changes with the weather and time of day,

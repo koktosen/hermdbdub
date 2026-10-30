@@ -65,6 +65,9 @@ printer:
 
 # ---- Layout: remove or reorder anything here and the wall adapts within a minute ----
 rotate_seconds: 45                   # 0 = no auto-rotation
+attention:                           # what gets the yellow/pulse treatment and the must-not-miss banner (word prefixes, case-insensitive)
+  meeting_words: [meeting, sync, call, standup, stand-up, huddle, interview, appointment, "1:1", webinar, demo, review]
+  major_words: [payroll, due, deadline, tax, expir, renew, filing, invoice, rent, bill]
 layout:
   pages: [calendar, feed, weather]   # page order; digit keys 1..n
   rotate_pages: [calendar, feed, weather]

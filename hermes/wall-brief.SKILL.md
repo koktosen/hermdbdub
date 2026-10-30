@@ -64,6 +64,26 @@ The `layout:` section removes or reorders things: `pages`, `rotate_pages`, `tick
 `feed_columns` (headlines/xtrends/xme/brief), `dock_tiles` (upnext/fng/hours/host), `marquees` (ticker/news),
 `week_days`. "I don't care about crypto fear" → drop `fng` from `dock_tiles`. The wall picks changes up within 60 s.
 
+## Changing the wall itself (code, not config)
+When a request is about how the wall looks or behaves rather than what it shows, it is a code change and you can
+make it. The wall is a small static page served from `~/dev/hermdbw/server/web/`: `index.html` (structure), `app.js`
+(all rendering, one function per panel, e.g. `renderNextUp`, `renderCalendar`, `renderBottomStrip`), `style.css`.
+Data comes from `~/dev/hermdbw/server/collectors/*.py` into `data/*.json`; the server is `serve.py`.
+Attention rules (which events pulse, which all-day items count as must-not-miss reminders) are word lists under
+`attention:` in `config.yaml`, so "treat 'dentist' as a meeting" is a config edit, not code.
+
+Work like this: read the function you are changing before editing it, keep the Pi in mind (it is a slow 32-bit
+board, so prefer CSS transitions and transform animations over per-frame JavaScript), then verify with a
+screenshot before saying it is done:
+```bash
+node --check ~/dev/hermdbw/server/web/app.js
+flatpak run com.brave.Browser --headless=new --disable-gpu --hide-scrollbars --window-size=1920,1080 \
+  --virtual-time-budget=9000 --screenshot=/tmp/wall.png "http://127.0.0.1:8470/?page=calendar"   # or feed / weather
+```
+Look at the image. Then commit on `main` in `~/dev/hermdbw` with a one-line message of what changed and push.
+The wall reloads itself within five minutes of a change (the collectors stamp the web files' version into
+`status.json`), so no one has to touch the Pi. Never put secrets, private URLs or the owner's location into the repo.
+
 ## Flash alerts on the wall (yours to use proactively)
 Post anything the owner should not miss. It flashes full-screen for `flash_seconds` (default 20), then stays as a
 banner under the header until `ttl_minutes` (default 720) or dismissal.

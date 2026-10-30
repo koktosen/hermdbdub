@@ -193,6 +193,34 @@
 
   // ---------- calendar ----------
   function events() { return (data.calendar?.events || []).map((e) => ({ ...e, s: new Date(e.start), e: new Date(e.end) })); }
+  // ---------- attention: which events deserve the yellow/pulse treatment and which are must-not-miss ----------
+  const ATTENTION = {
+    meeting_words: ["meeting", "sync", "call", "standup", "stand-up", "huddle", "interview", "appointment", "1:1", "webinar", "demo", "review"],
+    major_words: ["payroll", "due", "deadline", "tax", "expir", "renew", "filing", "invoice", "rent", "bill"],
+  };
+  const wordRe = (w) => new RegExp("(^|[^a-z0-9])" + String(w).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  const hasWord = (text, words) => words.some((w) => wordRe(w).test(text || ""));
+  const att = (k) => (data.config?.attention?.[k]?.length ? data.config.attention[k] : ATTENTION[k]);
+  // Timed events people actually have to show up for: video calls, phone calls, anything with a meeting-ish title.
+  function isMeeting(e) {
+    if (e.all_day) return false;
+    if (e.video) return true;
+    if (e.location && (/^https?:\/\//i.test(e.location) || /\+?\d[\d\s().-]{6,}\d/.test(e.location))) return true;
+    return hasWord(e.title, att("meeting_words"));
+  }
+  // All-day items that are deadlines rather than decoration (payroll, filings, expirations).
+  const isMajor = (e) => !!e.all_day && hasWord(e.title, att("major_words"));
+  const dayOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  // Major events for today and tomorrow, shaped like Hermes alerts so the header bar can show them.
+  function majorAlerts() {
+    const now = new Date(), t0 = dayOf(now), t2 = new Date(t0); t2.setDate(t0.getDate() + 2);
+    return events().filter((e) => isMajor(e) && e.s < t2 && e.e > t0).map((e) => {
+      const today = e.s <= now && e.e > now;
+      return { id: `major:${e.start.slice(0, 10)}:${e.title}`, title: e.title, level: today ? "urgent" : "warn",
+               body: (today ? "today" : "tomorrow · " + e.s.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })) + (e.source ? " · " + e.source + " calendar" : ""),
+               flash_seconds: 15, major: true };
+    });
+  }
   function renderNextUp() {
     const now = new Date(), el = $("#next-up");
     const timed = events().filter((e) => !e.all_day);
@@ -202,7 +230,8 @@
     if (!ev) { el.className = "card hero"; el.innerHTML = `<div class="label">Next up</div><div class="title muted">Nothing scheduled</div>`; return; }
     const ms = (live ? ev.e : ev.s) - now, m = Math.floor(ms / 60000), h = Math.floor(m / 60);
     const cd = h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : h ? `${h}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`;
-    el.className = "card hero" + (live ? " now" : m < 15 ? " soon" : "");
+    const mtg = isMeeting(ev);   // only meetings get the yellow warning and the pulse
+    el.className = "card hero" + (live ? " now" : m < 15 ? " soon" : "") + (mtg ? " mtg" : "");
     el.innerHTML = `<div class="label">${live ? "Happening now · ends in" : "Next up · in"}</div>
       <div class="countdown">${cd}</div>
       <div class="title"><span class="dot" style="display:inline-block;width:.6em;height:.6em;border-radius:50%;background:${ev.color};margin-right:.4em"></span>${esc(ev.title)}</div>
@@ -223,7 +252,7 @@
     const today = evs.filter((e) => sameDay(e.s, now) || (e.all_day && e.s <= now && e.e > now));
     const upcomingToday = today.filter((e) => e.e > now).length;
     const row = (e) => `
-      <div class="ev${e.e < now ? " past" : ""}">
+      <div class="ev${e.e < now ? " past" : ""}${isMajor(e) ? " major" : ""}${isMeeting(e) ? " mtg" : ""}">
         <div class="t">${e.all_day ? "all day" : fmtT(e.s)}</div>
         <div><div class="ttl"><span class="dot" style="background:${e.color}"></span>${esc(e.title)}</div>
         ${e.location && !/^https?:\/\//i.test(e.location) ? `<div class="loc">${esc(e.location)}</div>` : e.video ? `<div class="loc">🎥 video call</div>` : ""}</div>
@@ -253,7 +282,7 @@
       const list = evs.filter((e) => e.s < d2 && e.e > d);
       cols.push(`<div class="day-col${i === 0 ? " today" : ""}">
         <div class="dh"><span>${d.toLocaleDateString([], { weekday: "short" })}</span><b>${d.getDate()}</b></div>
-        ${list.slice(0, 12).map((e) => `<div class="chip" style="border-color:${e.color}"><div class="ct">${e.all_day ? "all day" : fmtT(e.s)}</div><div class="cn">${esc(e.title)}</div></div>`).join("")}
+        ${list.slice(0, 12).map((e) => `<div class="chip${isMajor(e) ? " major" : ""}" style="border-color:${e.color}"><div class="ct">${e.all_day ? "all day" : fmtT(e.s)}</div><div class="cn">${esc(e.title)}</div></div>`).join("")}
         ${list.length > 12 ? `<div class="muted">+${list.length - 12} more</div>` : ""}
       </div>`);
     }
@@ -413,8 +442,9 @@
   let flashing = null, flashTimer = null;
   function showAlertBar(alerts) {
     const bar = $("#alert-bar");
+    alerts = [...majorAlerts(), ...alerts];
     bar.hidden = !alerts.length;
-    bar.innerHTML = alerts.map((a) => `<div class="ab ${esc(a.level || "info")}"><b>${esc(a.title)}</b><span>${esc((a.body || "").split("\n")[0].slice(0, 90))}</span></div>`).join("");
+    bar.innerHTML = alerts.map((a) => `<div class="ab ${esc(a.level || "info")}${a.major ? " major" : ""}"><b>${esc(a.title)}</b><span>${esc((a.body || "").split("\n")[0].slice(0, 90))}</span></div>`).join("");
   }
   function flashAlert(a) {
     flashing = a; paused = true; clearTimeout(rotateTimer);
@@ -437,8 +467,10 @@
       const now = Date.now() / 1000;
       const alerts = (await r.json()).filter((a) => a.expires > now);
       showAlertBar(alerts);
-      if (!flashing && !tk.open) { const fresh = alerts.find((a) => !seenAlerts.has(a.id)); if (fresh) flashAlert(fresh); }
-    } catch (e) { /* no alerts file yet */ }
+      // Hermes alerts flash when first seen; a major calendar event flashes once on its day.
+      const fresh = [...alerts, ...majorAlerts().filter((a) => a.level === "urgent")].find((a) => !seenAlerts.has(a.id));
+      if (!flashing && !tk.open && fresh) flashAlert(fresh);
+    } catch (e) { showAlertBar([]); }
   }
   setInterval(pollAlerts, 5000); setTimeout(pollAlerts, 2000);
 

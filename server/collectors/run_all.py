@@ -28,7 +28,7 @@ def main(names: list) -> int:
     web = pathlib.Path(__file__).resolve().parent.parent / "web"
     assets_version = str(int(max(((web / f).stat().st_mtime for f in ("index.html", "app.js", "style.css") if (web / f).exists()), default=0)))
     write_json("status", {"collectors": status, "assets_version": assets_version,
-                          "config": {**{k: cfg.get(k) for k in ("rotate_seconds", "timezone", "brief_window")}, **(cfg.get("layout") or {}), "agent_name": cfg.get("agent_name", "Brief"), "location_image": (cfg.get("location") or {}).get("image"), "week_days": (cfg.get("layout") or {}).get("week_days", 5)}})
+                          "config": {**{k: cfg.get(k) for k in ("rotate_seconds", "timezone", "brief_window")}, **(cfg.get("layout") or {}), "agent_name": cfg.get("agent_name", "Brief"), "attention": cfg.get("attention") or {}, "location_image": (cfg.get("location") or {}).get("image"), "week_days": (cfg.get("layout") or {}).get("week_days", 5)}})
     return 1 if failed else 0
 
 
