@@ -32,6 +32,19 @@ bash set-url.sh http://<other-host>:8470/   # point the kiosk elsewhere
 Plug in any USB keyboard, numpad or macro pad — the page maps digits to pages, `0`/`Enter` to the brief, `+`/`-` to
 next/previous (see the key table in the root README). Numpads work with NumLock on or off.
 
+## Updates and security
+The bootstrap enables `unattended-upgrades`: every day the Pi pulls and installs security and stable updates from
+Debian, Raspberry Pi and Tailscale, removes unused dependencies, and — only when an update requires it (kernel,
+firmware, libc) — reboots at `REBOOT_TIME` (default 04:30 local; set `REBOOT_TIME=03:00 bash bootstrap-pi.sh …`).
+The kiosk comes back on its own after a reboot. Check what happened:
+```bash
+sudo unattended-upgrade --dry-run -v        # what would be applied now
+journalctl -u apt-daily-upgrade --since -7d  # recent runs
+cat /var/log/unattended-upgrades/unattended-upgrades.log | tail
+```
+The Pi exposes only SSH (and Tailscale); the dashboard is pulled from the server, nothing listens for the public.
+For the server, use your distribution's equivalent (`unattended-upgrades` on Debian/Ubuntu, `dnf-automatic` on Fedora).
+
 ## No monitor attached?
 Without a display there is no EDID, the DRM connector reads *disconnected*, `cog` can't start and HDMI audio can't
 open. The bootstrap adds `video=HDMI-A-1:1920x1080@60D` to `/boot/firmware/cmdline.txt` so the output is forced on;

@@ -61,7 +61,7 @@ and Wi-Fi in its settings, boot it, then:
 ```bash
 scp pi/bootstrap-pi.sh <user>@<pi>:~ && ssh <user>@<pi> 'bash bootstrap-pi.sh http://<server-ip>:8470/ && sudo reboot'
 ```
-It comes up full-screen on HDMI with no desktop. Details and troubleshooting: [`pi/README.md`](pi/README.md).
+It comes up full-screen on HDMI with no desktop, and keeps itself patched: daily unattended security updates with an off-hours reboot only when one is required. Details and troubleshooting: [`pi/README.md`](pi/README.md).
 
 **3. Hermes agent (optional, but the point)**
 ```bash

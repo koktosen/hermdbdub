@@ -8,6 +8,7 @@ URL="${1:?usage: bootstrap-pi.sh http://<server>:8470/}"
 USER_NAME="$(id -un)"
 USER_HOME="$HOME"
 WIFI_COUNTRY="${WIFI_COUNTRY:-US}"
+REBOOT_TIME="${REBOOT_TIME:-04:30}"   # unattended-upgrades may reboot the kiosk at this local time when required
 
 log() { printf '\n==> %s\n' "$*"; }
 
@@ -15,6 +16,34 @@ log "apt: kiosk browser (cog/WPE), seatd, framebuffer fallback, log2ram"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cog wpewebkit-driver libgles2 seatd fbi log2ram fonts-noto-core fonts-noto-color-emoji \
   gstreamer1.0-alsa gstreamer1.0-plugins-good gstreamer1.0-libav   # libgles2: WPE renderer crash-loops without it; gstreamer: audio for the brief takeover
+
+log "unattended security updates (daily; reboots at ${REBOOT_TIME:-04:30} only when an update requires it)"
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades apt-listchanges >/dev/null
+sudo tee /etc/apt/apt.conf.d/20auto-upgrades >/dev/null <<'APT'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT
+sudo tee /etc/apt/apt.conf.d/52hermdbw-unattended >/dev/null <<APT
+// hermdbw kiosk: take security + stable updates from Debian, Raspberry Pi and Tailscale; reboot off-hours if needed.
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=\${distro_codename},label=Debian-Security";
+    "origin=Debian,codename=\${distro_codename}-security,label=Debian-Security";
+    "origin=Debian,codename=\${distro_codename},label=Debian";
+    "origin=Debian,codename=\${distro_codename}-updates";
+    "origin=Raspberry Pi Foundation,codename=\${distro_codename}";
+    "origin=Raspbian,codename=\${distro_codename}";
+    "origin=Tailscale";
+};
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Automatic-Reboot-Time "${REBOOT_TIME:-04:30}";
+Unattended-Upgrade::SyslogEnable "true";
+APT
+sudo systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null
 
 log "wifi: regulatory domain ${WIFI_COUNTRY} (unlocks wlan0 for the USB dongle)"
 sudo raspi-config nonint do_wifi_country "$WIFI_COUNTRY" || true
