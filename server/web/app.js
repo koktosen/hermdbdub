@@ -34,6 +34,7 @@
     }
     current = page;
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
+    renderBottomStrip();
     render(page);
   }
   function step(delta) {
@@ -85,11 +86,12 @@
     const d = new Date();
     $("#time").textContent = fmtT(d);
     $("#date").textContent = d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-    if (current === "calendar") renderNextUp();
+    if (current === "calendar") { renderNextUp(); if (d.getSeconds() === 0) renderCalendar(); }
   }
   setInterval(tickClock, 1000); tickClock();
 
   // ---------- data ----------
+  let assetsVersion = null;  // status.json assets_version at page load; a change means new web files were deployed
   let fetchFails = 0;  // consecutive refresh cycles with no reachable server → reload (clears stale connections after a network move)
   async function load(name) {
     try {
@@ -103,6 +105,8 @@
     fetchFails = results.some(Boolean) ? 0 : fetchFails + 1;
     if (fetchFails >= 3 && !tk.open && !flashing) location.reload();
     data.config = data.status?.config || data.config;
+    const av = data.status?.assets_version;
+    if (av) { if (assetsVersion && av !== assetsVersion && !tk.open && !flashing) location.reload(); assetsVersion = av; }
     applyLayout(); renderWeather(); renderDock(); render(current); setStatus();
     if (!rotateTimer) scheduleRotate();
   }
@@ -134,17 +138,20 @@
 
   // ---------- auto-scroll (Web Animations on transform: composited, no per-frame JS) ----------
   const anims = new Map();
-  function autoScroll(inner) {
+  // `from` = pixels already scrolled off the top before the sweep starts (used to park a list at "now").
+  function autoScroll(inner, from = 0) {
     const outer = inner.parentElement;
     const overflow = inner.scrollHeight - outer.clientHeight;
+    from = Math.max(0, Math.min(from, overflow));
     const prev = anims.get(inner);
     const prevTime = prev?.currentTime || 0;
     prev?.cancel();
-    if (overflow <= 8) { inner.style.transform = ""; anims.delete(inner); return; }
+    if (overflow - from <= 8) { inner.style.transform = from ? `translateY(-${from}px)` : ""; anims.delete(inner); return; }
+    inner.style.transform = "";
     const a = inner.animate(
-      [{ transform: "translateY(0)" }, { transform: "translateY(0)", offset: 0.08 },
+      [{ transform: `translateY(-${from}px)` }, { transform: `translateY(-${from}px)`, offset: 0.08 },
        { transform: `translateY(-${overflow}px)`, offset: 0.92 }, { transform: `translateY(-${overflow}px)` }],
-      { duration: (overflow / SCROLL_PX_PER_S) * 1000 / 0.84, iterations: Infinity, direction: "alternate", easing: "linear" });
+      { duration: ((overflow - from) / SCROLL_PX_PER_S) * 1000 / 0.84, iterations: Infinity, direction: "alternate", easing: "linear" });
     a.currentTime = prevTime;
     anims.set(inner, a);
   }
@@ -201,6 +208,16 @@
       <div class="title"><span class="dot" style="display:inline-block;width:.6em;height:.6em;border-radius:50%;background:${ev.color};margin-right:.4em"></span>${esc(ev.title)}</div>
       <div class="meta">${sameDay(ev.s, now) ? "" : ev.s.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + " · "}${fmtT(ev.s)} – ${fmtT(ev.e)}${ev.location && !/^https?:\/\//i.test(ev.location) ? " · " + esc(ev.location) : ""}${ev.video ? " · 🎥 video call" : ""}</div>`;
   }
+  // Keep Today at "now": finished events slide off the top (the last one stays as context) and whatever
+  // still overflows sweeps slowly from there, like the feed columns.
+  function anchorToday() {
+    const inner = $("#today-inner"), outer = inner.parentElement;
+    const overflow = inner.scrollHeight - outer.clientHeight;
+    const past = inner.querySelectorAll(".ev.past");
+    const anchor = past[past.length - 1];   // the event that finished most recently stays visible as context
+    inner.dataset.anchor = `${anchor?.offsetTop ?? "-"}/${overflow}`;  // readable in DOM dumps
+    autoScroll(inner, anchor && overflow > 0 ? anchor.offsetTop : 0);
+  }
   function renderCalendar() {
     const now = new Date(), evs = events();
     const today = evs.filter((e) => sameDay(e.s, now) || (e.all_day && e.s <= now && e.e > now));
@@ -216,18 +233,19 @@
     // When today is (nearly) done, fill the column with the next few days so the space stays useful.
     if (upcomingToday < 4) {
       let shown = today.length;
-      for (let i = 1; i <= 7 && shown < 11; i++) {
+      for (let i = 1; i <= 7 && shown < 14; i++) {
         const d = new Date(now); d.setDate(now.getDate() + i); d.setHours(0, 0, 0, 0);
         const d2 = new Date(d); d2.setDate(d.getDate() + 1);
         const list = evs.filter((e) => e.s < d2 && e.e > d && (e.s >= d || e.all_day));
         if (!list.length) continue;
         const label = i === 1 ? "Tomorrow" : d.toLocaleDateString([], { weekday: "long" });
         html += `<div class="day-head">${label} <span class="muted">· ${d.toLocaleDateString([], { month: "short", day: "numeric" })}</span></div>`;
-        html += list.slice(0, 11 - shown).map(row).join("");
+        html += list.slice(0, 14 - shown).map(row).join("");
         shown += list.length;
       }
     }
-    $("#today-list").innerHTML = html;
+    $("#today-inner").innerHTML = html;
+    requestAnimationFrame(anchorToday);
     const cols = [], nDays = data.config?.week_days || 5;
     for (let i = 0; i < nDays; i++) {
       const d = new Date(now); d.setDate(now.getDate() + i); d.setHours(0, 0, 0, 0);
@@ -309,7 +327,9 @@
   }
 
   function renderBottomStrip() {
-    const t = [], now = new Date(), tiles = layout("dock_tiles", ["upnext", "fng", "hours", "host"]);
+    const t = [], now = new Date();
+    // The calendar page has its own Next-up hero, so the dock drops that tile there and the column gets the room.
+    const tiles = layout("dock_tiles", ["upnext", "fng", "hours", "host"]).filter((k) => !(k === "upnext" && current === "calendar"));
     const want = (k) => tiles.includes(k);
     // Up next: the next three timed events across all calendars
     const next = events().filter((e) => !e.all_day && e.e > now).slice(0, 3);

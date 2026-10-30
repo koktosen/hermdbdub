@@ -71,7 +71,8 @@ body.init .page { transition: none; }
 .hero.soon .countdown { color: var(--warning); }
 .hero.now .countdown { color: var(--good); }
 
-.agenda { overflow: hidden; flex: 1; }
+.agenda { overflow: hidden; flex: 1; min-height: 0; position: relative; }
+.agenda::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: linear-gradient(transparent, var(--surface-0)); pointer-events: none; }
 .ev { display: grid; grid-template-columns: 5.2rem 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .ev .t { font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
 .ev .ttl { font-weight: 600; display: flex; align-items: center; gap: 10px; }

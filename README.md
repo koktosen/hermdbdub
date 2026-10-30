@@ -18,14 +18,15 @@ Electron, no build step, and no API keys for the basics.
 
 ## What's on the wall
 
-- **Calendar** — next-up countdown, today's agenda rolling into the next days, and a five-day grid merging every iCal
-  feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
+- **Calendar** — next-up countdown, today's agenda that keeps pace with the clock (finished events slide off the top)
+  and rolls into the next days, and a five-day grid merging every iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
 - **Feed** — crypto and stock tickers with 24 h change and sparklines, headlines from your RSS feeds, and what's trending
   on X from your own account.
 - **Weather** — current conditions on a frosted-glass panel over a photo that changes with the weather and time of day,
   a 24-hour temperature and rain-chance chart, and a 7-day forecast with sunrise and sunset.
-- **Dock on every page** — the next three events with countdowns, crypto Fear & Greed, the next eight hours, and a
-  one-line health readout of the server; plus two tape lines (markets, headlines).
+- **Dock on every page** — the next three events with countdowns (hidden on the calendar page, which has its own),
+  crypto Fear & Greed, the next eight hours, and a one-line health readout of the server; plus two tape lines
+  (markets, headlines).
 - **Header** — clock, freshness indicator, weather summary for your location, five-day outlook, moon phase.
 - **Your agent** — a morning brief (text + spoken audio via [Piper](https://github.com/rhasspy/piper)) that takes the
   screen on a key press, and **flash alerts** your agent can post any time: "Lakeview trip in 7 days — 15° colder, pack
