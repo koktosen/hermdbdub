@@ -6,9 +6,12 @@
   let state = { answers: {}, sources: {}, missing: [] };
   const api = (path, body) => fetch(`/api/setup${path}`, body ? { method: "POST", headers: { "Content-Type": "application/json", "X-Source": "browser" }, body: JSON.stringify(body) } : {}).then((r) => r.json());
 
+  const SOURCE_KEY = { tailnet_kind: "tailnet", tailnet_login_server: "tailnet", rss_text: "rss_feeds", city: "location" };
+  const REQUIRED = new Set(["pi_model", "pi_hostname", "pi_password", "wifi_ssid", "city"]);
   function tag(name) {
-    const src = state.sources[name]; const el = $(`[name="${name}"]`)?.closest("label");
+    const src = state.sources[SOURCE_KEY[name] || name]; const el = $(`[name="${name}"]`)?.closest("label");
     if (!el) return; el.querySelector(".tag")?.remove();
+    if (!src && !REQUIRED.has(name)) return;   // optional and untouched: no badge
     const t = document.createElement("span"); t.className = "tag " + (src === "agent" ? "agent" : src ? "you" : "need");
     t.textContent = src === "agent" ? "filled by your assistant" : src ? "filled by you" : "needed"; el.firstChild.after?.(t) || el.append(t);
   }
