@@ -103,6 +103,12 @@ cat > "$BIN_DIR/wallctl" <<WRAP
 exec "$PY" "$HERE/bin/wallctl" "\$@"
 WRAP
 chmod +x "$BIN_DIR/wallctl"
+rm -f "$BIN_DIR/hermdbw"
+cat > "$BIN_DIR/hermdbw" <<WRAP
+#!/usr/bin/env bash
+exec "$PY" "$HERE/bin/hermdbw" "\$@"
+WRAP
+chmod +x "$BIN_DIR/hermdbw"
 
 log "retire old unit names, enable new ones"
 for old in hermdbw-xme.timer hermdbw-xme.service rpi-dashboard-web.service rpi-dashboard-collect.timer rpi-dashboard-collect.service rpi-dashboard-ops.timer rpi-dashboard-ops.service; do

@@ -47,7 +47,8 @@ the tailnet approval link, and — if chosen — "your agent is generating backd
 ## The walkthrough (no agent)
 The same page, with each step's commands shown to copy and paste. Nothing is hidden behind the agent.
 
-## Still to build after the page
+## Built: `server/bin/hermdbw` (flash · adopt · doctor)
+See the root README. Design notes that still apply:
 - `hermdbw flash` — detect the removable card (refuse non-removable disks), fetch + verify the right image, write it,
   drop the generated cloud-init files on it.
 - `hermdbw adopt` — wait for the Pi to appear, install the SSH key, run the bootstrap remotely, join the tailnet,

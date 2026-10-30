@@ -27,6 +27,10 @@ curl -s -X POST http://127.0.0.1:8470/api/setup -H 'Content-Type: application/js
 curl -s -X POST http://127.0.0.1:8470/api/setup/validate -d '{"url": "https://…/basic.ics"}'   # test a calendar link
 curl -s -X POST http://127.0.0.1:8470/api/setup/apply                                            # write config.yaml + run collectors
 ```
+After the page is complete, the Pi steps are commands you can run (they show their plan first; use `--dry-run` to preview):
+`hermdbw flash --yes` (needs the SD card in this machine, writes it), `hermdbw adopt --yes` (Pi powered on), `hermdbw doctor`
+(run this whenever he says the wall is wrong — it names the broken link in plain words; relay its arrows).
+
 Rules: fill only what you are confident of (city, tailnet, their name, what they said they care about). Never guess
 Wi-Fi passwords or calendar links — tell them where to click instead (the page shows per-provider paths). Then say:
 "Open http://<server>:8470/setup — I filled in N things; you have M left."

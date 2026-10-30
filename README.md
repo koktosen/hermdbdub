@@ -73,6 +73,18 @@ Put the printed job ids into `server/config.yaml`, install Piper and set `piper_
 agent so it picks up the skill. From then on: "put my work calendar on the wall", "drop the crypto fear tile",
 "play my brief on the wall". See [`hermes/README.md`](hermes/README.md).
 
+## Three commands do the rest
+After the setup page, the mechanical steps are one command each (installed to `~/.local/bin` by `server/install.sh`).
+Your Hermes agent can run them for you; they never guess and they show what they are about to do.
+```bash
+hermdbw flash           # finds the SD card (refuses anything that isn't removable), downloads + verifies the right
+                        # Raspberry Pi OS Lite for your board, writes it, drops the first-boot files on it
+hermdbw adopt           # waits for the Pi to boot, installs your SSH key, runs the kiosk bootstrap, joins the tailnet
+hermdbw doctor          # checks every link — config, collectors, server, firewall, agent, voice, X, the Pi's
+                        # kiosk/browser/HDMI — and says in plain words what to do about anything that is off
+```
+`--dry-run` on flash and adopt shows the plan without touching anything; `--yes` skips the confirmation.
+
 ## The setup page
 ![Setup page](docs/img/setup.png)
 

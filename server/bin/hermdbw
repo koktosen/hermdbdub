@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""hermdbw — the three mechanical steps of setting up a wall, driven by the answers from /setup (data/setup.json).
+
+  hermdbw flash  [--device /dev/sdX] [--yes] [--dry-run]    write the right Raspberry Pi OS Lite to a removable card + first-boot files
+  hermdbw adopt  [--host H] [--yes] [--dry-run]             wait for the Pi, install the SSH key, bootstrap the kiosk, join the tailnet
+  hermdbw doctor                                            check every link in the chain and say, in plain words, what is wrong
+
+Deterministic on purpose: an agent can run these, but they never guess. Anything risky (writing a disk) is shown first
+and needs --yes (or an interactive y)."""
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+import lib_setup as ls  # noqa: E402
+
+CACHE = Path(os.environ.get("HERMDBW_CACHE", Path.home() / ".cache" / "hermdbw"))
+OS_LIST = "https://downloads.raspberrypi.com/os_list_imagingutility_v4.json"
+IMAGE_NAME = {"raspios_lite_armhf": "Raspberry Pi OS Lite (32-bit)", "raspios_lite_arm64": "Raspberry Pi OS Lite (64-bit)"}
+C = {"ok": "\033[32m", "warn": "\033[33m", "fail": "\033[31m", "0": "\033[0m", "b": "\033[1m"}
+say = lambda s: print(s, flush=True)
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def root_prefix() -> list:
+    """How to become root here: passwordless sudo, else sudo with a TTY, else pkexec (GUI prompt)."""
+    if os.geteuid() == 0: return []
+    if run(["sudo", "-n", "true"]).returncode == 0: return ["sudo"]
+    if sys.stdin.isatty(): return ["sudo"]
+    if shutil.which("pkexec"): return ["pkexec"]
+    sys.exit("need root for this step: run with sudo, or from a terminal")
+
+
+def confirm(prompt: str, yes: bool) -> bool:
+    if yes: return True
+    if not sys.stdin.isatty(): say(f"{prompt}  (non-interactive: pass --yes to proceed)"); return False
+    return input(f"{prompt} [y/N] ").strip().lower() == "y"
+
+
+# ---------------------------------------------------------------- flash
+def removable_disks() -> list:
+    d = json.loads(run(["lsblk", "-J", "-o", "NAME,PATH,SIZE,TYPE,RM,TRAN,MODEL,MOUNTPOINTS"]).stdout)
+    out = []
+    for b in d["blockdevices"]:
+        if b["type"] == "disk" and (b.get("rm") in (True, "1", 1) or b.get("tran") in ("usb", "mmc")) and b.get("size") not in (None, "0B"):
+            out.append(b)
+    return out
+
+
+def resolve_image(family: str) -> dict:
+    with urllib.request.urlopen(OS_LIST, timeout=30) as r: d = json.load(r)
+    def walk(items):
+        for it in items:
+            if "subitems" in it: yield from walk(it["subitems"])
+            else: yield it
+    want = IMAGE_NAME[family]
+    for it in walk(d["os_list"]):
+        if it.get("name") == want and f"/{family}/" in it.get("url", ""):
+            return {"name": it["name"], "url": it["url"], "release": it.get("release_date"), "size": it.get("image_download_size")}
+    sys.exit(f"could not find {want} in the Raspberry Pi image list")
+
+
+def download(url: str) -> Path:
+    CACHE.mkdir(parents=True, exist_ok=True)
+    dest = CACHE / url.rsplit("/", 1)[1]
+    with urllib.request.urlopen(url + ".sha256", timeout=30) as r: want = r.read().decode().split()[0]
+    if dest.exists() and hashlib.sha256(dest.read_bytes()).hexdigest() == want:
+        say(f"  image cached: {dest}"); return dest
+    say(f"  downloading {url} …")
+    tmp = dest.with_suffix(".part")
+    with urllib.request.urlopen(url, timeout=60) as r, open(tmp, "wb") as f:
+        total = int(r.headers.get("Content-Length") or 0); got = 0
+        while True:
+            chunk = r.read(1 << 20)
+            if not chunk: break
+            f.write(chunk); got += len(chunk)
+            if total: print(f"\r  {100 * got // total:3d}%", end="", flush=True)
+    print()
+    if hashlib.sha256(tmp.read_bytes()).hexdigest() != want: tmp.unlink(); sys.exit("download checksum mismatch — try again")
+    tmp.replace(dest); return dest
+
+
+def cmd_flash(a):
+    state = ls.load(); ans = state.get("answers", {})
+    if ls.missing(state) and not a.dry_run:
+        say(f"{C['warn']}setup is incomplete ({', '.join(ls.missing(state))}) — finish /setup first, or the Pi will boot without Wi-Fi/login{C['0']}")
+    fam = ls.IMAGES.get(ans.get("pi_model", ""), "raspios_lite_arm64")
+    say(f"{C['b']}board:{C['0']} {ans.get('pi_model') or '(unknown → 64-bit)'}  →  {IMAGE_NAME[fam]}")
+    disks = removable_disks()
+    if a.device:
+        disk = next((d for d in disks if d["path"] == a.device), None)
+        if not disk: sys.exit(f"{a.device} is not a removable disk I can see — refusing. Removable: {[d['path'] for d in disks] or 'none'}")
+    elif len(disks) == 1: disk = disks[0]
+    elif not disks: sys.exit("no removable card or USB disk found — plug the SD card (or reader) in and run again")
+    else: sys.exit("several removable disks: " + ", ".join(f"{d['path']} ({d['size']} {d.get('model') or ''})" for d in disks) + " — pick one with --device")
+    say(f"{C['b']}card:{C['0']}  {disk['path']}  {disk['size']}  {disk.get('tran')}  {disk.get('model') or ''}")
+    img = resolve_image(fam)
+    say(f"{C['b']}image:{C['0']} {img['name']} {img['release']}  ({(img['size'] or 0) // 2**20} MB download)")
+    ci = ls.cloudinit(state)
+    if a.dry_run: say("dry run: nothing written. Would write the image, then user-data (hostname "
+                      f"{ans.get('pi_hostname', 'wall')}, user {ans.get('pi_user', 'wall')}) and network-config (Wi-Fi {ans.get('wifi_ssid') or '—'}) to bootfs."); return 0
+    if not confirm(f"ERASE {disk['path']} ({disk['size']}) and write {img['name']}?", a.yes): return 1
+    path = download(img["url"])
+    for part in run(["lsblk", "-ln", "-o", "PATH", disk["path"]]).stdout.split()[1:]:
+        run(["udisksctl", "unmount", "-b", part])
+    sudo = root_prefix()
+    say("  writing (this takes a few minutes) …")
+    p = subprocess.run(" ".join(sudo + ["bash", "-c", f"'xzcat {path} | dd of={disk['path']} bs=4M conv=fsync status=none && sync && partprobe {disk['path']}'"]), shell=True)
+    if p.returncode: sys.exit("write failed")
+    time.sleep(2)
+    boot = next((pp for pp in run(["lsblk", "-ln", "-o", "PATH,LABEL", disk["path"]]).stdout.splitlines() if "bootfs" in pp), None)
+    if not boot: sys.exit("could not find the bootfs partition after writing — re-plug the card and copy user-data/network-config by hand")
+    bootdev = boot.split()[0]
+    mnt = run(["udisksctl", "mount", "-b", bootdev]).stdout.strip().rsplit(" at ", 1)[-1].rstrip(".")
+    (Path(mnt) / "user-data").write_text(ci["user-data"]); (Path(mnt) / "network-config").write_text(ci["network-config"])
+    run(["sync"]); run(["udisksctl", "unmount", "-b", bootdev]); run(["udisksctl", "power-off", "-b", disk["path"]])
+    say(f"{C['ok']}done.{C['0']} Put the card in the board, connect HDMI and power. Then:  hermdbw adopt")
+    return 0
+
+
+# ---------------------------------------------------------------- adopt
+def ssh_opts(): return ["-o", "BatchMode=yes", "-o", "ConnectTimeout=12", "-o", "StrictHostKeyChecking=accept-new"]
+
+
+def server_url(a) -> str:
+    if a.server_url: return a.server_url
+    ip = run(["hostname", "-I"]).stdout.split()[0]
+    return f"http://{ip}:{os.environ.get('PORT', '8470')}/"
+
+
+def cmd_adopt(a):
+    state = ls.load(); ans = state.get("answers", {})
+    host = a.host or f"{ans.get('pi_hostname', 'wall')}.local"; user = ans.get("pi_user", "wall")
+    url = server_url(a); tail = ans.get("tailnet") or {}
+    say(f"{C['b']}pi:{C['0']} {user}@{host}   {C['b']}dashboard:{C['0']} {url}   {C['b']}tailnet:{C['0']} {tail.get('kind', 'lan')}")
+    if a.dry_run: say("dry run: would wait for SSH, install this machine's SSH key, run pi/bootstrap-pi.sh, "
+                      + ("join the tailnet, " if tail.get("kind") in ("tailscale", "headscale") else "") + "and reboot."); return 0
+    say("  waiting for the Pi to answer on SSH (up to 10 min) …")
+    for i in range(100):
+        try:
+            with socket.create_connection((host, 22), timeout=3): break
+        except OSError: time.sleep(6)
+    else: sys.exit(f"{host} never answered on port 22 — is it powered, on Wi-Fi, and did the first boot finish?")
+    key = next((p for p in (Path.home() / ".ssh").glob("id_*.pub")), None)
+    if not key: run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(Path.home() / ".ssh/id_ed25519")]); key = Path.home() / ".ssh/id_ed25519.pub"
+    if run(["ssh", *ssh_opts(), f"{user}@{host}", "true"]).returncode != 0:
+        if not ans.get("pi_password"): sys.exit("no SSH key on the Pi and no password saved in /setup — add the password there or copy the key yourself (ssh-copy-id)")
+        ask = CACHE / "askpass.sh"; CACHE.mkdir(parents=True, exist_ok=True)
+        ask.write_text(f"#!/bin/sh\nprintf '%s' {json.dumps(ans['pi_password'])}\n"); ask.chmod(0o700)
+        env = {**os.environ, "SSH_ASKPASS": str(ask), "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": os.environ.get("DISPLAY", ":0")}
+        r = subprocess.run(["ssh-copy-id", "-o", "StrictHostKeyChecking=accept-new", "-i", str(key), f"{user}@{host}"], env=env, capture_output=True, text=True)
+        ask.unlink(missing_ok=True)
+        if r.returncode: sys.exit("could not install the SSH key: " + r.stderr.strip()[-200:])
+    say(f"{C['ok']}  ssh ok{C['0']}")
+    if not confirm("Run the kiosk bootstrap on the Pi (installs packages, ~10 min on a Pi 2)?", a.yes): return 1
+    pi_dir = ROOT.parent / "pi"
+    for f in ("bootstrap-pi.sh", "set-url.sh", "tailscale-up.sh"):
+        subprocess.run(["scp", "-q", *ssh_opts(), str(pi_dir / f), f"{user}@{host}:~/"], check=True)
+    subprocess.run(["ssh", *ssh_opts(), f"{user}@{host}", f"bash ~/bootstrap-pi.sh {url}"], check=True)
+    if tail.get("kind") in ("tailscale", "headscale"):
+        env = f"LOGIN_SERVER={tail.get('login_server')} " if tail.get("kind") == "headscale" and tail.get("login_server") else ""
+        say(f"{C['b']}  joining the tailnet — approve the link it prints{C['0']}")
+        subprocess.run(["ssh", "-t", *ssh_opts(), f"{user}@{host}", f"{env}bash ~/tailscale-up.sh"])
+        if a.tailnet_url: subprocess.run(["ssh", *ssh_opts(), f"{user}@{host}", f"bash ~/set-url.sh {a.tailnet_url}"])
+        else: say("  when it has joined: hermdbw adopt --host <pi> --tailnet-url http://<this machine's tailnet ip>:8470/  (or run set-url.sh on the Pi)")
+    subprocess.run(["ssh", *ssh_opts(), f"{user}@{host}", "sudo reboot"])
+    say(f"{C['ok']}done.{C['0']} The wall should appear on the TV within two minutes. Then:  hermdbw doctor")
+    return 0
+
+
+# ---------------------------------------------------------------- doctor
+def cmd_doctor(a):
+    rows = []
+    def add(status, what, detail="", fix=""): rows.append((status, what, detail, fix))
+    cfg_path = ls.CONFIG
+    if not cfg_path.exists(): add("fail", "config", "no config.yaml", "open /setup, or copy config.yaml.example")
+    cfg = {}
+    try:
+        import yaml; cfg = yaml.safe_load(cfg_path.read_text()) or {} if cfg_path.exists() else {}
+        if cfg_path.exists(): add("ok", "config", "parses")
+    except Exception as e: add("fail", "config", f"does not parse: {str(e)[:80]}", "fix the YAML or re-run /setup apply")
+    loc = cfg.get("location") or {}
+    add("ok" if loc.get("lat") is not None else "warn", "weather location", f"{loc.get('name')} {loc.get('lat')},{loc.get('lon')}" if loc.get("lat") is not None else "not set", "set it in /setup (city) — weather and the next-hours tile stay empty until then")
+    cals = [c for c in cfg.get("calendars", []) if c.get("url")]
+    add("ok" if cals else "warn", "calendars", f"{len(cals)} configured" if cals else "none", "paste your calendar links in /setup")
+    # collectors freshness
+    st = ls.DATA / "status.json"
+    if st.exists():
+        d = json.loads(st.read_text()); age = time.time() - os.path.getmtime(st)
+        bad = {k: v.get("error") for k, v in d.get("collectors", {}).items() if not v.get("ok")}
+        add("ok" if age < 900 else "fail", "collectors ran", f"{int(age // 60)} min ago", "systemctl --user status hermdbw-collect.timer")
+        for k, e in bad.items(): add("warn", f"collector {k}", str(e)[:90], "fix the source or remove it from config.yaml")
+    else: add("fail", "collectors ran", "never", "cd server/collectors && ../.venv/bin/python run_all.py")
+    cal = ls.DATA / "calendar.json"
+    if cal.exists():
+        c = json.loads(cal.read_text())
+        for n, e in (c.get("errors") or {}).items(): add("warn", f"calendar {n}", str(e)[:90], "the link is wrong or expired — re-copy it from the provider")
+        if cals and not c.get("events"): add("warn", "calendar", "0 events in the window", "check the links (private, not public) and calendar_days")
+    # web server
+    port = int(os.environ.get("PORT", "8470"))
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=2): add("ok", "dashboard server", f"listening on :{port}")
+    except OSError: add("fail", "dashboard server", f"nothing on :{port}", "systemctl --user restart hermdbw-web")
+    for unit in ("hermdbw-web.service", "hermdbw-collect.timer", "hermdbw-ops.timer"):
+        r = run(["systemctl", "--user", "is-active", unit]).stdout.strip()
+        add("ok" if r == "active" else "fail", unit, r, f"systemctl --user enable --now {unit}")
+    if run(["loginctl", "show-user", os.environ.get("USER", ""), "-p", "Linger", "--value"]).stdout.strip() != "yes":
+        add("warn", "linger", "not enabled — services stop when you log out", f"loginctl enable-linger {os.environ.get('USER', '')}")
+    # firewall (best effort, no root)
+    if shutil.which("ufw") and Path("/etc/ufw/ufw.conf").exists() and "ENABLED=yes" in Path("/etc/ufw/ufw.conf").read_text():
+        add("warn", "firewall", "ufw is on — fine if the wall shows data; if the Pi can't load the page, allow it", f"sudo ufw allow from <lan or tailnet> to any port {port} proto tcp")
+    # agent bits
+    if cfg.get("hermes_brief_job"):
+        out = Path.home() / ".hermes/cron/output" / str(cfg["hermes_brief_job"])
+        add("ok" if out.exists() and any(out.glob("*.md")) else "warn", "morning brief", "has output" if out.exists() else "no output yet", "hermes cron run <job id>")
+    else: add("warn", "morning brief", "no hermes_brief_job in config (optional)", "bash hermes/install-hermes.sh")
+    pv = cfg.get("piper_voice")
+    if pv: add("ok" if Path(os.path.expanduser(pv)).exists() and shutil.which("piper") else "warn", "spoken brief", "piper + voice present" if shutil.which("piper") else "piper not installed", "pip install piper-tts; put a .onnx voice at piper_voice")
+    x = cfg.get("x_api") or {}
+    if x.get("enabled"):
+        r = run(["xurl", "auth", "status"]) if shutil.which("xurl") else None
+        add("ok" if r and "oauth2:" in r.stdout and "(none)" not in r.stdout.split("▸")[-1] else "warn", "X login", "xurl has a user token" if r else "xurl not installed", "see README → X")
+    # the Pi
+    state = ls.load(); ans = state.get("answers", {})
+    host = a.host or (f"{ans['pi_hostname']}.local" if ans.get("pi_hostname") else None); user = ans.get("pi_user", "wall")
+    if host:
+        r = run(["ssh", *ssh_opts(), f"{user}@{host}", "systemctl --user is-active kiosk; pgrep -c cog; cat /sys/class/drm/card0-HDMI-A-1/status 2>/dev/null; tailscale ip -4 2>/dev/null | head -1; sudo -n journalctl _SYSTEMD_USER_UNIT=kiosk.service --since -30min --no-pager 2>/dev/null | grep -c Crash; true"])
+        if r.returncode == 255: add("fail", f"pi {host}", "no SSH: " + r.stderr.strip().splitlines()[-1][:80] if r.stderr.strip() else "no SSH", "is it on? run: hermdbw adopt")
+        else:
+            lines = r.stdout.split("\n") + [""] * 5
+            add("ok" if lines[0] == "active" else "fail", "pi kiosk service", lines[0] or "?", "ssh in: systemctl --user restart kiosk")
+            add("ok" if lines[1].strip() not in ("", "0") else "fail", "pi browser (cog)", f"{lines[1].strip() or 0} process(es)", "journalctl --user -u kiosk on the Pi; is libgles2 installed?")
+            add("ok" if lines[2].strip() == "connected" else "warn", "pi HDMI", lines[2].strip() or "unknown", "no display detected (forced mode keeps the kiosk alive; audio needs a real TV)")
+            if lines[3].strip(): add("ok", "pi tailnet", lines[3].strip())
+            if lines[4].strip() not in ("", "0"): add("warn", "pi renderer crashes (30 min)", lines[4].strip(), "sudo apt install libgles2; check memory")
+    else: add("warn", "pi", "no Pi named in /setup yet", "answer the board + name cards, then: hermdbw flash / adopt")
+    worst = "ok"
+    for s, what, detail, fix in rows:
+        icon = {"ok": "✔", "warn": "!", "fail": "✘"}[s]
+        say(f"{C[s]}{icon} {what:<28}{C['0']} {detail}" + (f"\n    → {fix}" if s != "ok" and fix else ""))
+        worst = "fail" if s == "fail" or worst == "fail" else ("warn" if s == "warn" else worst)
+    say({"ok": f"\n{C['ok']}all good{C['0']}", "warn": f"\n{C['warn']}working, with things to tidy{C['0']}", "fail": f"\n{C['fail']}something is broken — see the arrows{C['0']}"}[worst])
+    return 0 if worst != "fail" else 1
+
+
+p = argparse.ArgumentParser(prog="hermdbw", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+sp = p.add_subparsers(dest="cmd", required=True)
+s = sp.add_parser("flash"); s.add_argument("--device"); s.add_argument("--yes", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_flash)
+s = sp.add_parser("adopt"); s.add_argument("--host"); s.add_argument("--server-url"); s.add_argument("--tailnet-url"); s.add_argument("--yes", action="store_true"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_adopt)
+s = sp.add_parser("doctor"); s.add_argument("--host"); s.set_defaults(fn=cmd_doctor)
+a = p.parse_args(); sys.exit(a.fn(a))
