@@ -21,6 +21,7 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--surface-0); color: var(--ink);
   font-family: "Inter", "Noto Sans", "DejaVu Sans", system-ui, sans-serif;
+  --emoji: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Twemoji Mozilla", sans-serif;
   display: flex; flex-direction: column; overflow: hidden; cursor: none;
 }
 h2 { font-size: 1.1rem; font-weight: 600; letter-spacing: .02em; color: var(--ink-2); margin: 0 0 .5rem; text-transform: uppercase; }
@@ -275,3 +276,7 @@ body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed p
 .moon .mt { display: flex; flex-direction: column; line-height: 1.25; font-size: .8rem; color: var(--ink-2); }
 .moon .mt b { color: var(--ink); font-size: .9rem; font-weight: 600; }
 .moon .mt small { color: var(--ink-3); }
+
+/* Emoji glyphs always come from the colour emoji font. Without this, a text font that happens to carry the
+   same code points (DejaVu Sans has monochrome moon phases) wins on some machines and the icons go black-and-white. */
+#moon .mi, #weather-strip .now, #weather-strip .day span:first-of-type, .wx-big #wx-icon, .wx-day .i, .mini .hours span:nth-child(2), #wx-chart text.ico { font-family: var(--emoji); }
