@@ -49,6 +49,7 @@ One failing source never blanks the wall: errors land in the JSON and in the pag
 | `GET /healthz` | 200 `{"ok": true}` when every collector ran recently and succeeded, else 503 with `failed` / `stale` names |
 | `GET\|POST /api/trigger?what=brief\|dismiss` † | start / stop the full-screen brief; the page polls every 5 s |
 | `POST /api/alert` † JSON `{title, body?, image?, level?: info\|warn\|urgent, ttl_minutes?, flash_seconds?}` | flash alert; `GET /api/alert` lists (open), `?dismiss=ID` †, `?clear=1` † |
+| `POST /api/note` † JSON `{title, body?, level?: info\|warn\|urgent}` | a short update for the Feed page's "From <agent>" column, newest first, last 20 kept; `GET /api/note` lists, `?dismiss=ID` †, `?clear=1` † |
 | `POST /api/trip` † JSON `{destination, start, end (YYYY-MM-DD), lat?, lon?, timezone?, notes?}` | the next trip; the dock's next-hours tile shows its weather from 7 days out. `GET /api/trip` reads it, `?clear=1` † forgets it |
 | `/api/setup…` † | the setup page's API (see `lib_setup.py`) |
 

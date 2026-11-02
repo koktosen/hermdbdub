@@ -76,7 +76,7 @@ layout:
   pages: [calendar, feed, weather]   # page order; digit keys 1..n
   rotate_pages: [calendar, feed, weather]
   ticker_rows: [crypto, stocks]      # rows at the top of Feed
-  feed_columns: [headlines, xtrends] # Feed columns: headlines | xtrends | xme | brief
+  feed_columns: [headlines, notes]   # Feed columns: headlines | notes (short updates your agent posts) | xtrends | xme | brief
   dock_tiles: [upnext, hours, host]  # dock on every page: up-next events | next hours (away place or home) | host status;
                                      # add fng for a crypto Fear & Greed tile (it is on the Feed crypto row regardless)
   marquees: [ticker, news]           # tape lines under the dock (hidden on Feed, which shows the full versions)

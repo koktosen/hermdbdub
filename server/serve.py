@@ -24,7 +24,7 @@ WEB = ROOT / "web"
 DATA_DIR = Path(os.environ.get("HERMDBW_DATA", ROOT / "data"))   # demo mode points this at generated sample data
 PORT = int(os.environ.get("PORT", "8470"))
 TOKEN_FILE = DATA_DIR / ".api_token"
-PUBLIC_DATA = {f"{n}.json" for n in ("calendar", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage",
+PUBLIC_DATA = {f"{n}.json" for n in ("calendar", "notes", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage",
                                      "fng", "status", "alerts", "trigger")} | {"brief.mp3"}
 MAX_BODY = 64 * 1024
 LEVELS = ("info", "warn", "urgent")
@@ -75,6 +75,7 @@ class Handler(SimpleHTTPRequestHandler):
         if p.startswith("/api/trigger"): return self.trigger
         if p.startswith("/api/alert"): return self.alert
         if p.startswith("/api/trip"): return self.trip
+        if p.startswith("/api/note"): return self.note
         if p == "/healthz": return self.healthz
         if p.startswith("/api/"): return lambda: self.send_error(404)
         return None
@@ -168,6 +169,35 @@ class Handler(SimpleHTTPRequestHandler):
             elif "clear" in q: alerts = []
             if mutating: write_atomic(path, alerts)
         self.send_json({"alerts": alerts})
+
+    def note(self):
+        """Short updates from the agent for the Feed page's "From <agent>" column (no flash, no banner).
+        POST /api/note  JSON {"title","body"?,"level"?("info"|"warn"|"urgent")}   (trusted)  — newest first, last 20 kept
+        GET  /api/note            → list
+        GET  /api/note?dismiss=ID | ?clear=1   (trusted)"""
+        path = DATA_DIR / "notes.json"
+        q = parse_qs(urlparse(self.path).query)
+        mutating = self.command == "POST" or "dismiss" in q or "clear" in q
+        if mutating and not self.trusted():
+            return self.deny()
+        new = None
+        if self.command == "POST":
+            body = self.body_json()
+            if body is None: return
+            title = str(body.get("title") or "").strip()
+            if not title: return self.send_error(400, "title required")
+            level = str(body.get("level") or "info")
+            if level not in LEVELS: return self.send_error(400, f"level must be one of {LEVELS}")
+            new = {"id": uuid.uuid4().hex[:8], "title": title[:90], "body": str(body.get("body") or "").strip()[:240],
+                   "level": level, "time": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+        with _lock:
+            notes = [n for n in read_json(path, []) if isinstance(n, dict)]
+            if new: notes = [new] + notes
+            elif "dismiss" in q: notes = [n for n in notes if n.get("id") != q["dismiss"][0]]
+            elif "clear" in q: notes = []
+            notes = notes[:20]
+            if mutating: write_atomic(path, notes)
+        self.send_json({"notes": notes})
 
     def trip(self):
         """The next trip, so the dock can show the destination's weather ahead of it (the weather collector reads this).

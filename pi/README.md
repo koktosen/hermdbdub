@@ -18,8 +18,9 @@ ssh <user>@<pi> 'bash bootstrap-pi.sh http://<server-ip>:8470/ && sudo reboot'
 ```
 Idempotent. Installs `cog`, `wpewebkit-driver`, `libgles2` (without it the renderer crash-loops), `seatd`, GStreamer
 audio plugins (for the spoken brief over HDMI), `fbi`, `log2ram` (spares the SD card); sets the Wi-Fi regulatory
-domain (`WIFI_COUNTRY=US` by default), `gpu_mem=16`, the 3.5 mm jack as the ALSA default (`AUDIO_CARD=1` for HDMI,
-if your TV actually has an audio sink), a persistent capped journal, no console autologin, a 600 MB memory cap and a
+domain (`WIFI_COUNTRY=US` by default), `gpu_mem=16`, audio to every output that works (`audio-route.sh` probes HDMI,
+the 3.5 mm jack and any USB speaker at boot and nightly and writes `/etc/asound.conf`; a TV with no HDMI audio
+block is simply skipped), a persistent capped journal, no console autologin, a 600 MB memory cap and a
 04:35 nightly restart for the browser, and a
 `systemd --user` `kiosk.service` (with linger) that runs `~/.local/bin/kiosk.sh`. The launcher waits until the URL
 answers before starting the browser, so a server reboot or a network move just delays the picture.

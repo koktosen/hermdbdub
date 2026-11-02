@@ -61,9 +61,10 @@
     PAGES = want.length ? want : ALL_PAGES.slice();
     if (!PAGES.includes(current)) current = PAGES[0];
     $("#tabs").innerHTML = PAGES.map((p, i) => `<button data-page="${p}"${p === current ? ' class="active"' : ""}><span class="key">${i + 1}</span>${LABELS[p]}</button>`).join("");
-    const cols = layout("feed_columns", ["headlines", "xtrends", "xme", "brief"]);
+    const cols = layout("feed_columns", ["headlines", "notes", "xme", "brief"]);
     document.querySelectorAll("#page-feed .feed-col").forEach((el) => { el.hidden = !cols.includes(el.dataset.col); });
-    $(".feed-cols").style.gridTemplateColumns = cols.map((c) => ({ headlines: "1.3fr", xtrends: "1fr", xme: ".95fr", brief: "1fr" }[c] || "1fr")).join(" ");
+    $(".feed-cols").style.gridTemplateColumns = cols.map((c) => ({ headlines: "1.3fr", xtrends: "1fr", notes: "1fr", xme: ".95fr", brief: "1fr" }[c] || "1fr")).join(" ");
+    $("#notes-title").textContent = `From ${data.config?.agent_name || "the agent"}`;
     const rows = layout("ticker_rows", ["crypto", "stocks"]);
     $("#ticker-crypto").hidden = !rows.includes("crypto"); $("#ticker-stocks").hidden = !rows.includes("stocks");
     const mq = layout("marquees", ["ticker", "news"]);
@@ -128,7 +129,7 @@
   async function refresh() {
     if (refreshing) return; refreshing = true;
     try {
-      const results = await Promise.all(["calendar", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage", "fng", "status"].map(load));
+      const results = await Promise.all(["calendar", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage", "fng", "notes", "status"].map(load));
       fetchFails = results.some(Boolean) ? 0 : fetchFails + 1;
       data.config = data.status?.config || data.config;
       const av = data.status?.assets_version;
@@ -278,6 +279,22 @@
                flash_seconds: 15, major: true };
     });
   }
+  // Must-not-miss items further out, with a countdown; they fill the reminder strip when today/tomorrow are clear.
+  function majorUpcoming(days = 7) {
+    const now = new Date(), t2 = dayOf(now); t2.setDate(t2.getDate() + 2); const tN = new Date(t2); tN.setDate(t2.getDate() + days - 2);
+    return events().filter((e) => isMajor(e) && e.s >= t2 && e.s < tN).map((e) => ({
+      title: e.title, level: "info", major: true,
+      body: `in ${Math.round((dayOf(e.s) - dayOf(now)) / 86400000)} days · ${e.s.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}${e.source ? " · " + e.source + " calendar" : ""}` }));
+  }
+  // The next trip (from /api/trip or the calendar), as one strip row: where, when, and what the weather is doing there.
+  function tripRow() {
+    const a = data.weather?.away; if (!a?.trip) return null;
+    const today = dayOf(new Date()), s = new Date(a.trip.start + "T00:00"), e = new Date(a.trip.end + "T00:00");
+    const d = Math.round((s - today) / 86400000);
+    const when = d > 1 ? `in ${d} days` : d === 1 ? "tomorrow" : d === 0 ? "today" : `until ${shortDate(a.trip.end)}`;
+    const wx = a.daily?.[0] ? ` · ${a.daily[0].hi}°/${a.daily[0].lo}° ${a.daily[0].label.toLowerCase()}` : "";
+    return { level: "trip", title: `✈ ${a.name}`, body: `${when} · ${shortDate(a.trip.start)}${a.trip.end !== a.trip.start ? "–" + shortDate(a.trip.end) : ""}${wx}${a.notes ? " · " + a.notes : ""}` };
+  }
   let lastHero = "";
   function renderNextUp() {
     const now = new Date(), el = $("#next-up");
@@ -310,11 +327,13 @@
     const now = new Date(), evs = events();
     const dayStart = dayOf(now), dayEnd = new Date(dayStart); dayEnd.setDate(dayStart.getDate() + 1);
     const today = evs.filter((e) => e.s < dayEnd && e.e > dayStart);   // overlaps today, so a 11 PM–1 AM event stays listed while live
+    const timed = evs.filter((e) => !e.all_day);
+    const clash = (e) => !e.all_day && timed.some((o) => o !== e && o.s < e.e && o.e > e.s);   // double-booked
     const upcomingToday = today.filter((e) => e.e > now).length;
     const row = (e) => `
       <div class="ev${e.e < now ? " past" : ""}${isMajor(e) ? " major" : ""}${isMeeting(e) ? " mtg" : ""}">
         <div class="t">${e.all_day ? "all day" : fmtT(e.s)}</div>
-        <div><div class="ttl"><span class="dot" style="background:${esc(e.color)}"></span>${esc(e.title)}</div>
+        <div><div class="ttl"><span class="dot" style="background:${esc(e.color)}"></span>${esc(e.title)}${clash(e) ? `<span class="clash" title="overlaps another event">⚠</span>` : ""}</div>
         ${e.location && !/^https?:\/\//i.test(e.location) ? `<div class="loc">${esc(e.location)}</div>` : e.video ? `<div class="loc">🎥 video call</div>` : ""}</div>
       </div>`;
     let html = today.map(row).join("");
@@ -335,10 +354,11 @@
     }
     if ($("#today-inner").innerHTML !== html) $("#today-inner").innerHTML = html;
     requestAnimationFrame(anchorToday);
-    const majors = majorAlerts();
+    // Reminder strip: today/tomorrow deadlines first, then the next trip, then deadlines later this week.
+    const strip = [...majorAlerts(), tripRow(), ...majorUpcoming()].filter(Boolean).slice(0, 2);
     // Always two rows tall so the Today column never shifts when a deadline appears or clears.
-    $("#major-strip").innerHTML = majors.slice(0, 2).map((a) => `<div class="mj ${a.level}"><b>${esc(a.title)}</b><span>${esc(a.body)}</span></div>`).join("")
-      || `<div class="mj none"><b>No deadlines today or tomorrow</b></div>`;
+    $("#major-strip").innerHTML = strip.map((a) => `<div class="mj ${a.level}"><b>${esc(a.title)}</b><span>${esc(a.body)}</span></div>`).join("")
+      || `<div class="mj none"><b>No deadlines or trips this week</b></div>`;
     const cols = [], nDays = data.config?.week_days || 5;
     for (let i = 0; i < nDays; i++) {
       const d = new Date(now); d.setDate(now.getDate() + i); d.setHours(0, 0, 0, 0);
@@ -346,7 +366,7 @@
       const list = evs.filter((e) => e.s < d2 && e.e > d);
       cols.push(`<div class="day-col${i === 0 ? " today" : ""}">
         <div class="dh"><span>${d.toLocaleDateString([], { weekday: "short" })}</span><b>${d.getDate()}</b></div>
-        ${list.slice(0, 12).map((e) => `<div class="chip${isMajor(e) ? " major" : ""}" style="border-color:${esc(e.color)}"><div class="ct">${e.all_day ? "all day" : fmtT(e.s)}</div><div class="cn">${esc(e.title)}</div></div>`).join("")}
+        ${list.slice(0, 12).map((e) => `<div class="chip${isMajor(e) ? " major" : ""}" style="border-color:${esc(e.color)}"><div class="ct">${e.all_day ? "all day" : fmtT(e.s)}</div><div class="cn">${esc(e.title)}${clash(e) ? `<span class="clash">⚠</span>` : ""}</div></div>`).join("")}
         ${list.length > 12 ? `<div class="muted">+${list.length - 12} more</div>` : ""}
       </div>`);
     }
@@ -412,6 +432,12 @@
     $("#xme").innerHTML = (xm.posts || []).length
       ? xm.posts.map((p) => `<div class="xp"><div class="who">${esc(p.name || p.handle || "")}<small>@${esc(p.handle || "")} · ${ago(p.time)}</small></div><div class="tx">${esc(p.text)}</div></div>`).join("")
       : `<span class="muted">${esc(xm.error || xm.hint || "no posts yet")}</span>`;
+
+    const notes = Array.isArray(data.notes) ? data.notes : [];
+    $("#notes-stamp").textContent = notes[0]?.time ? ago(notes[0].time) + " ago" : "";
+    $("#notes").innerHTML = notes.length
+      ? notes.slice(0, 6).map((n) => `<div class="note ${esc(n.level || "info")}"><div class="nt"><b>${esc(n.title)}</b><span class="ago">${ago(n.time)}</span></div>${n.body ? `<div class="nb">${esc(n.body)}</div>` : ""}</div>`).join("")
+      : `<span class="muted">${data.notes?.error ? "notes are not reaching the wall" : `nothing from ${esc(data.config?.agent_name || "the agent")} yet`}</span>`;
 
     const b = data.brief || {};
     $("#brief-stamp").textContent = b.found ? b.run_time.slice(0, 16) : "";

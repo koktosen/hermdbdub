@@ -19,11 +19,14 @@ Electron, no build step, and no API keys for the basics.
 ## What's on the wall
 
 - **Calendar** — next-up countdown that turns yellow and gently pulses for meetings and calls (never for workouts or
-  chores), must-not-miss all-day items such as payroll or deadlines flagged in the agenda, the grid and a reminder
-  strip under the countdown, today's agenda that keeps pace with the clock (finished events slide off the top) and rolls into the next
-  days, and a five-day grid merging every iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
+  chores); must-not-miss all-day items such as payroll or deadlines flagged in the agenda and the grid; a reminder
+  strip under the countdown with today's and tomorrow's deadlines, the next trip ("✈ Austin · in 4 days · Nov 9–12 ·
+  80°/61° clear") and later deadlines with a countdown; a ⚠ on double-booked events; today's agenda that keeps pace
+  with the clock (finished events slide off the top) and rolls into the next days; and a five-day grid merging every
+  iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
 - **Feed** — crypto and stock tickers with 24 h change and sparklines (crypto Fear & Greed rides on the crypto row),
-  headlines from your RSS feeds, and what's trending on X from your own account.
+  headlines from your RSS feeds, a **"From Sadie"** column of short updates your agent posts (newest first, two lines
+  each, no flashing), and optionally what's trending on X from your own account.
 - **Weather** — current conditions on a frosted-glass panel over a photo that changes with the weather and time of day,
   a 24-hour temperature and rain-chance chart, and a 7-day forecast with sunrise and sunset.
 - **Dock on every page** — the next events with countdowns (hidden on the calendar page, which has its own), the next

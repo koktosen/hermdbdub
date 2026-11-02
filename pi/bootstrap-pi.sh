@@ -49,11 +49,35 @@ log "wifi: regulatory domain ${WIFI_COUNTRY} (unlocks wlan0 for the USB dongle)"
 sudo raspi-config nonint do_wifi_country "$WIFI_COUNTRY" || true
 sudo rfkill unblock wifi || true
 
-# Default ALSA device. AUDIO_CARD=1 is HDMI; most small TVs expose no HDMI audio sink at all (128-byte EDID,
-# no ELD), in which case the 3.5 mm jack (card 0) with a powered speaker is the only thing that will play.
-AUDIO_CARD="${AUDIO_CARD:-0}"
-log "audio: default ALSA device = card ${AUDIO_CARD} (0 = 3.5 mm jack, 1 = HDMI)"
-printf 'defaults.pcm.card %s\ndefaults.ctl.card %s\n' "$AUDIO_CARD" "$AUDIO_CARD" | sudo tee /etc/asound.conf >/dev/null
+# Audio goes to every output that accepts it (HDMI when the TV has an audio sink, the 3.5 mm jack, a USB speaker):
+# audio-route.sh probes the cards and writes /etc/asound.conf, at boot and nightly, so the same image works on any
+# TV or monitor and a speaker plugged in later is picked up by the next morning.
+log "audio: probe outputs at boot (HDMI / jack / USB) and fan out to all that work"
+sudo install -m 755 "$(dirname "$0")/audio-route.sh" /usr/local/sbin/audio-route.sh
+sudo tee /etc/systemd/system/hermdbw-audio.service >/dev/null <<UNIT
+[Unit]
+Description=route kiosk audio to every output that accepts it (HDMI / jack / USB)
+After=sound.target
+Wants=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/audio-route.sh
+UNIT
+sudo tee /etc/systemd/system/hermdbw-audio.timer >/dev/null <<UNIT
+[Unit]
+Description=re-probe audio outputs nightly (before the kiosk restart)
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable hermdbw-audio.service hermdbw-audio.timer
+sudo /usr/local/sbin/audio-route.sh || true
 
 log "boot config: gpu_mem=16 (full KMS renders on the ARM side; the firmware needs almost nothing), no overscan"
 CFG=/boot/firmware/config.txt
