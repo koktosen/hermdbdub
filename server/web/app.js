@@ -66,6 +66,7 @@
     $("#dock").hidden = !layout("dock_tiles", ["upnext"]).length && !mq.length;
     $("#brief-title").textContent = data.config?.agent_name || "Brief";
     document.body.classList.toggle("no-sparklines", data.config?.sparklines === false);
+    $("#moon").hidden = data.config?.header_moon === false;
   }
   applyLayout();
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { show(b.dataset.page); scheduleRotate(); } });
@@ -199,7 +200,7 @@
   }
   function renderMoon() {
     const m = moonInfo();
-    $("#moon").innerHTML = `<span class="mi">${m.icon}</span><span class="mt"><b>${m.name}</b><span>${m.illum}% lit · day ${m.age}</span><small>${m.next.what} ${m.next.date.toLocaleDateString([], { month: "short", day: "numeric" })} · in ${Math.round(m.next.days)}d</small></span>`;
+    $("#moon").innerHTML = `<span class="mi">${m.icon}</span><span class="mt"><b>${m.name}</b><span>${m.illum}% lit · ${m.next.what.toLowerCase()} in ${Math.round(m.next.days)}d</span></span>`;
   }
   renderMoon(); setInterval(renderMoon, 3600_000);
 
@@ -210,7 +211,7 @@
     if (!w || !w.configured) { el.className = "muted"; el.textContent = w?.error ? "weather unavailable" : (w?.hint || "weather: not configured"); return; }
     el.className = "";
     const c = w.current;
-    const days = (w.daily || []).slice(0, 5).map((d) => {
+    const days = (data.config?.header_outlook === true ? (w.daily || []).slice(0, 5) : []).map((d) => {
       const dt = new Date(d.date + "T12:00");
       return `<div class="day"><span>${dt.toLocaleDateString([], { weekday: "short" })}</span><span class="ico">${esc(d.icon)}</span><b>${esc(d.hi)}°</b><span>${esc(d.lo)}°</span></div>`;
     }).join("");
@@ -416,7 +417,9 @@
   function renderBottomStrip() {
     const t = [], now = new Date();
     // The calendar page has its own Next-up hero, so the dock drops that tile there and the column gets the room.
-    const tiles = layout("dock_tiles", ["upnext", "fng", "hours", "host"]).filter((k) => !(k === "upnext" && current === "calendar"));
+    const byPage = data.config?.dock_tiles_by_page?.[current];
+    const tiles = Array.isArray(byPage) ? byPage
+      : layout("dock_tiles", ["upnext", "fng", "hours", "host"]).filter((k) => !((k === "upnext" && current === "calendar") || (k === "hours" && current === "weather")));
     const want = (k) => tiles.includes(k);
     // Up next: the next three timed events across all calendars
     const next = events().filter((e) => !e.all_day && e.e > now).slice(0, 2);
@@ -434,7 +437,9 @@
     const onDemand = new Set(o.services_on_demand || []);
     const bad = svc.filter(([n, s]) => s !== "active" && !onDemand.has(n)).map(([n]) => n);
     const gpu = (o.gpus || []).map((g) => `${g.busy}%`).join(" / ");
-    if (want("host")) t.push(`<div class="mini"><div class="th">${esc(o.host || "server")}</div><div class="hostline"><span>load <b>${sys.load1 ?? "–"}</b></span><span>mem <b>${sys.mem_used_pct ?? "–"}%</b></span><span>gpu <b>${gpu || "–"}</b></span><span>ts <b>${o.tailscale?.online ?? "–"}</b>/${o.tailscale?.total ?? "–"}</span><span class="st ${bad.length ? "critical" : "good"}">${bad.length ? esc(bad.join(", ")) + " down" : "services ok"}</span>${data.xusage?.local ? `<span>X api <b>${esc(data.xusage.local.today)}</b> today · ${esc(data.xusage.local.month)} mo${data.xusage.official?.project_usage ? ` · X says ${esc(data.xusage.official.project_usage)}` : ""}</span>` : ""}</div></div>`);
+    if (want("host")) t.push(`<div class="mini"><div class="th">${esc(o.host || "server")}</div>
+      <div class="hostline"><span>load <b>${sys.load1 ?? "–"}</b></span><span>mem <b>${sys.mem_used_pct ?? "–"}%</b></span><span>gpu <b>${gpu || "–"}</b></span><span>net <b>${o.tailscale?.online ?? "–"}</b>/${o.tailscale?.total ?? "–"}</span></div>
+      <div class="hostline"><span class="st ${bad.length ? "critical" : "good"}">${bad.length ? esc(bad.join(", ")) + " down" : "services ok"}</span>${data.xusage?.local ? `<span>X api <b>${esc(data.xusage.local.today)}</b> today · ${esc(data.xusage.local.month)} this month</span>` : ""}</div></div>`);
     $("#bottom-strip").style.gridTemplateColumns = tiles.map((k) => ({ upnext: "1.6fr", fng: ".7fr", hours: "1.5fr", host: ".9fr" }[k] || "1fr")).join(" ");
     $("#bottom-strip").innerHTML = t.join("");
   }
@@ -459,9 +464,10 @@
       const dir = t.change_24h > 0 ? "up" : t.change_24h < 0 ? "down" : "";
       return `<span class="item"><span class="sym">${esc(t.symbol)}</span> $${fmtPx(t.price)} <span class="${dir}">${t.change_24h == null ? "" : (t.change_24h > 0 ? "+" : "") + t.change_24h.toFixed(1) + "%"}</span></span>`;
     }).join("");
-    marquee("mq-ticker", items, 55);
+    const sp = Number(data.config?.marquee_speed) > 0 ? Number(data.config.marquee_speed) : 1;
+    marquee("mq-ticker", items, 40 * sp);
     const news = (data.rss?.feeds || []).flatMap((f) => f.items.slice(0, 4).map((i) => `<span class="item"><span class="src">${esc(f.name)}</span>${esc(i.title)}</span>`)).join("");
-    marquee("mq-news", news, 70);
+    marquee("mq-news", news, 48 * sp);
   }
 
   // ---------- weather page ----------

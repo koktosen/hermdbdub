@@ -63,7 +63,7 @@ h2 { font-size: var(--t1); font-weight: 600; letter-spacing: .04em; color: var(-
 .moon .mi { font-size: var(--t4); line-height: 1; }
 .moon .mt { display: flex; flex-direction: column; line-height: 1.25; font-size: var(--t1); color: var(--ink-2); }
 .moon .mt b { color: var(--ink); font-weight: 600; }
-.moon .mt small { color: var(--ink-3); font-size: var(--t1); }
+.moon .mt span { white-space: nowrap; }
 
 /* ---- pages & transitions ---- */
 main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
