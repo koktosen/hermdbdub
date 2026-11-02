@@ -95,14 +95,30 @@
 
   // ---------- clock ----------
   const setText = (sel, text) => { const el = $(sel); if (el.textContent !== text) el.textContent = text; };
+  // Night mode: between layout.night = [startHour, endHour] (wrapping midnight) the board goes dark and shows only a
+  // dim clock and the next event. Flash alerts and the brief still appear on top. ?night=1 previews it.
+  function isNight() {
+    const n = data.config?.night; if (qs.has("night")) return true;
+    if (!Array.isArray(n) || n.length !== 2) return false;
+    const [a, b] = n.map(Number), h = new Date().getHours() + new Date().getMinutes() / 60;
+    return a > b ? (h >= a || h < b) : (h >= a && h < b);
+  }
+  function applyNight() {
+    const on = isNight();
+    if (document.body.classList.contains("night") !== on) document.body.classList.toggle("night", on);
+    if (!on) return;
+    const now = new Date(), ev = events().find((e) => !e.all_day && e.e > now);
+    setText("#night-next", ev ? `${sameDay(ev.s, now) ? "" : ev.s.toLocaleDateString([], { weekday: "short" }) + " "}${fmtT(ev.s)} · ${ev.title}` : "nothing scheduled");
+  }
   function tickClock() {
     const d = new Date();
     setText("#time", fmtT(d));
     setText("#date", d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }));
+    if (document.body.classList.contains("night")) { setText("#night-time", fmtT(d)); setText("#night-date", d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })); }
   }
   setInterval(tickClock, 1000); tickClock();
   // Countdowns and the Today anchor change once a minute: fire on the minute boundary, not on a drifting interval.
-  function everyMinute() { if (current === "calendar") renderCalendar(); guarded("dock", renderBottomStrip); }
+  function everyMinute() { if (current === "calendar") renderCalendar(); guarded("dock", renderBottomStrip); guarded("night", applyNight); }
   setTimeout(() => { everyMinute(); setInterval(everyMinute, 60_000); }, 60_000 - (Date.now() % 60_000) + 50);
 
   // ---------- data ----------
@@ -129,14 +145,14 @@
   async function refresh() {
     if (refreshing) return; refreshing = true;
     try {
-      const results = await Promise.all(["calendar", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage", "fng", "notes", "status"].map(load));
+      const results = await Promise.all(["calendar", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage", "fng", "notes", "leaveby", "status"].map(load));
       fetchFails = results.some(Boolean) ? 0 : fetchFails + 1;
       data.config = data.status?.config || data.config;
       const av = data.status?.assets_version;
       if (av) { if (!assetsVersion) assetsVersion = av; else if (av !== assetsVersion) pendingReload = true; }
       if ((fetchFails >= 3 || pendingReload) && !tk.open && !flashing) safeReload();
       parseEvents();
-      guarded("layout", applyLayout); guarded("weather", renderWeather); guarded("dock", renderDock); guarded(current, () => render(current)); guarded("status", setStatus);
+      guarded("layout", applyLayout); guarded("weather", renderWeather); guarded("dock", renderDock); guarded(current, () => render(current)); guarded("status", setStatus); guarded("night", applyNight);
       if (!rotateTimer) scheduleRotate();
     } finally { refreshing = false; }
   }
@@ -306,11 +322,15 @@
     const ms = (live ? ev.e : ev.s) - now, m = Math.floor(ms / 60000), h = Math.floor(m / 60);
     const cd = h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : h ? `${h}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`;
     const mtg = isMeeting(ev);   // only meetings get the yellow warning and the pulse
-    el.className = "card hero" + (live ? " now" : m < 15 ? " soon" : "") + (mtg ? " mtg" : "");
+    // A departure time the agent posted for this event (matched on title + start minute).
+    const lb = !live && (Array.isArray(data.leaveby) ? data.leaveby : []).find((l) => l.event === ev.title && String(l.start).slice(0, 16) === ev.start.slice(0, 16));
+    const leaveAt = lb ? new Date(lb.leave_at) : null, leaveMin = leaveAt ? Math.round((leaveAt - now) / 60000) : null;
+    const leaveTxt = leaveAt ? `leave ${leaveMin <= 0 ? "now" : leaveMin < 60 ? `in ${leaveMin}m` : "by " + fmtT(leaveAt)}${lb.travel_minutes ? ` (${lb.travel_minutes} min ${esc(lb.mode || "drive")})` : ""} · ` : "";
+    el.className = "card hero" + (live ? " now" : m < 15 || (leaveMin != null && leaveMin < 15) ? " soon" : "") + (mtg ? " mtg" : "") + (leaveMin != null && leaveMin < 15 ? " leave" : "");
     const html = `<div class="label">${live ? "Happening now · ends in" : "Next up · in"}</div>
       <div class="countdown">${cd}</div>
       <div class="title"><span class="dot" style="background:${esc(ev.color)}"></span>${esc(ev.title)}</div>
-      <div class="meta">${sameDay(ev.s, now) ? "" : ev.s.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + " · "}${fmtT(ev.s)} – ${fmtT(ev.e)}${ev.location && !/^https?:\/\//i.test(ev.location) ? " · " + esc(ev.location) : ""}${ev.video ? " · 🎥 video call" : ""}</div>`;
+      <div class="meta">${leaveTxt}${sameDay(ev.s, now) ? "" : ev.s.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + " · "}${fmtT(ev.s)} – ${fmtT(ev.e)}${ev.location && !/^https?:\/\//i.test(ev.location) ? " · " + esc(ev.location) : ""}${ev.video ? " · 🎥 video call" : ""}</div>`;
     if (lastHero !== html) { el.innerHTML = html; lastHero = html; }
   }
   // Keep Today at "now": finished events slide off the top (the last one stays as context) and whatever

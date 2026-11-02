@@ -94,6 +94,7 @@ body.init .page, .page.settle { transition: none; }
 .hero .meta { color: var(--ink-2); font-size: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero.mtg.soon .countdown { color: var(--warning); }
 .hero.mtg.now .countdown { color: var(--good); }
+.hero.leave .meta { color: var(--warning); }
 /* Gentle pulse for meetings only: an opacity-animated overlay, so the Pi composites it without repaints. */
 .hero.mtg.soon::after, .hero.mtg.now::after { content: ""; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; animation: breathe 2.6s ease-in-out infinite; }
 .hero.mtg.soon::after { box-shadow: inset 0 0 0 2px var(--warning), 0 0 1.1rem rgba(250, 178, 25, .45); }
@@ -290,3 +291,11 @@ body.has-alerts #mq-news { visibility: hidden; }   /* the banner sits exactly ov
 .note .nb { color: var(--ink-2); font-size: var(--t1); line-height: 1.35; margin-top: .1rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .note.warn .nt b { color: var(--warning); } .note.urgent .nt b { color: var(--critical-text); }
 .notes-col { border-color: var(--brief); }
+
+/* ---- night mode: dark board, dim clock, next event; alerts and the brief still come up on top ---- */
+#night { position: fixed; inset: 0; z-index: 40; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; gap: .6rem; color: #6c6c6c; }
+body.night #night { display: flex; }
+body.night #topbar, body.night #stage, body.night #dock, body.night #status { visibility: hidden; }
+#night-time { font-size: 9rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: #9a9a9a; }
+#night-date { font-size: var(--t3); }
+#night-next { font-size: var(--t3); color: #8a8a8a; margin-top: 1.2rem; max-width: 80vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -90,3 +90,5 @@ layout:
   #   feed: [upnext, hours, host]
   #   weather: [upnext, host]
   week_days: 5                       # day columns on the Calendar page
+  # night: [21, 5]                   # night mode: from 21:00 to 05:00 the board goes dark with a dim clock + next event
+  #                                  # (alerts and the brief still come up); the Pi also switches a CEC-capable TV off/on then

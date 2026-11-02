@@ -50,6 +50,7 @@ One failing source never blanks the wall: errors land in the JSON and in the pag
 | `GET\|POST /api/trigger?what=brief\|dismiss` † | start / stop the full-screen brief; the page polls every 5 s |
 | `POST /api/alert` † JSON `{title, body?, image?, level?: info\|warn\|urgent, ttl_minutes?, flash_seconds?}` | flash alert; `GET /api/alert` lists (open), `?dismiss=ID` †, `?clear=1` † |
 | `POST /api/note` † JSON `{title, body?, level?: info\|warn\|urgent}` | a short update for the Feed page's "From <agent>" column, newest first, last 20 kept; `GET /api/note` lists, `?dismiss=ID` †, `?clear=1` † |
+| `POST /api/leaveby` † JSON `{event, start (ISO), leave_at (ISO), travel_minutes?, mode?, note?}` | a departure time for an event; the next-up card shows "leave by 2:10 PM (25 min drive)" and turns amber 15 min before. `GET /api/leaveby` lists (past ones expire), `?clear=1` † |
 | `POST /api/trip` † JSON `{destination, start, end (YYYY-MM-DD), lat?, lon?, timezone?, notes?}` | the next trip; the dock's next-hours tile shows its weather from 7 days out. `GET /api/trip` reads it, `?clear=1` † forgets it |
 | `/api/setup…` † | the setup page's API (see `lib_setup.py`) |
 

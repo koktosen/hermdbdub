@@ -21,7 +21,9 @@ audio plugins (for the spoken brief over HDMI), `fbi`, `log2ram` (spares the SD 
 domain (`WIFI_COUNTRY=US` by default), `gpu_mem=16`, audio to every output that works (`audio-route.sh` probes HDMI,
 the 3.5 mm jack and any USB speaker at boot and nightly and writes `/etc/asound.conf`; a TV with no HDMI audio
 block is simply skipped), a persistent capped journal, no console autologin, a 600 MB memory cap and a
-04:35 nightly restart for the browser, and a
+04:35 nightly restart for the browser, TV off/on over HDMI-CEC at `NIGHT_START`/`NIGHT_END` (21:00/05:00; set the
+same hours as `night:` in the server config) plus TV-on for urgent alerts — only on a TV that exposes a CEC
+physical address, a bare monitor is left alone — and a
 `systemd --user` `kiosk.service` (with linger) that runs `~/.local/bin/kiosk.sh`. The launcher waits until the URL
 answers before starting the browser, so a server reboot or a network move just delays the picture.
 

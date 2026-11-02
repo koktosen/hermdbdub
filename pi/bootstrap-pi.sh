@@ -156,9 +156,18 @@ RandomizedDelaySec=120
 [Install]
 WantedBy=timers.target
 UNIT
+# Night mode on the TV itself: off at NIGHT_START, on at NIGHT_END, and on for an urgent alert — over HDMI-CEC.
+# Harmless on a TV or monitor without CEC (tv-power.sh explains and exits 0).
+NIGHT_START="${NIGHT_START:-21:00}"; NIGHT_END="${NIGHT_END:-05:00}"
+install -m 755 "$(dirname "$0")/tv-power.sh" "$(dirname "$0")/tv-wake.sh" "$USER_HOME/.local/bin/"
+printf '[Unit]\nDescription=TV off for the night (HDMI-CEC)\n\n[Service]\nType=oneshot\nExecStart=%%h/.local/bin/tv-power.sh off\n' > "$USER_HOME/.config/systemd/user/tv-off.service"
+printf '[Unit]\nDescription=TV off at night start\n\n[Timer]\nOnCalendar=*-*-* %s:00\n\n[Install]\nWantedBy=timers.target\n' "$NIGHT_START" > "$USER_HOME/.config/systemd/user/tv-off.timer"
+printf '[Unit]\nDescription=TV on in the morning (HDMI-CEC)\n\n[Service]\nType=oneshot\nExecStart=%%h/.local/bin/tv-power.sh on\n' > "$USER_HOME/.config/systemd/user/tv-on.service"
+printf '[Unit]\nDescription=TV on at night end\n\n[Timer]\nOnCalendar=*-*-* %s:00\n\n[Install]\nWantedBy=timers.target\n' "$NIGHT_END" > "$USER_HOME/.config/systemd/user/tv-on.timer"
+printf '[Unit]\nDescription=switch the TV on for urgent wall alerts (HDMI-CEC)\n\n[Service]\nExecStart=%%h/.local/bin/tv-wake.sh %s\nRestart=always\nRestartSec=60\n\n[Install]\nWantedBy=default.target\n' "$URL" > "$USER_HOME/.config/systemd/user/tv-wake.service"
 sudo loginctl enable-linger "$USER_NAME"
 systemctl --user daemon-reload
-systemctl --user enable kiosk.service kiosk-restart.timer
+systemctl --user enable kiosk.service kiosk-restart.timer tv-off.timer tv-on.timer tv-wake.service
 
 log "done. Reboot to start the kiosk:  sudo reboot"
 echo "Dashboard URL: ${URL}"

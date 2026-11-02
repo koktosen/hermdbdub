@@ -6,7 +6,7 @@ present the token in data/.api_token (generated on first start, mode 600) as an 
 Reads of the wall's own data files are open to whoever can reach the port (the kiosk needs them); only the files
 the page uses are served, never setup state or dotfiles."""
 import json
-from datetime import date
+from datetime import date, datetime, timedelta
 import os
 import re
 import secrets
@@ -24,7 +24,7 @@ WEB = ROOT / "web"
 DATA_DIR = Path(os.environ.get("HERMDBW_DATA", ROOT / "data"))   # demo mode points this at generated sample data
 PORT = int(os.environ.get("PORT", "8470"))
 TOKEN_FILE = DATA_DIR / ".api_token"
-PUBLIC_DATA = {f"{n}.json" for n in ("calendar", "notes", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage",
+PUBLIC_DATA = {f"{n}.json" for n in ("calendar", "notes", "leaveby", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage",
                                      "fng", "status", "alerts", "trigger")} | {"brief.mp3"}
 MAX_BODY = 64 * 1024
 LEVELS = ("info", "warn", "urgent")
@@ -76,6 +76,7 @@ class Handler(SimpleHTTPRequestHandler):
         if p.startswith("/api/alert"): return self.alert
         if p.startswith("/api/trip"): return self.trip
         if p.startswith("/api/note"): return self.note
+        if p.startswith("/api/leaveby"): return self.leaveby
         if p == "/healthz": return self.healthz
         if p.startswith("/api/"): return lambda: self.send_error(404)
         return None
@@ -169,6 +170,39 @@ class Handler(SimpleHTTPRequestHandler):
             elif "clear" in q: alerts = []
             if mutating: write_atomic(path, alerts)
         self.send_json({"alerts": alerts})
+
+    def leaveby(self):
+        """Departure times the agent worked out for events with a street address; the next-up card shows them.
+        POST /api/leaveby JSON {"event": title, "start": ISO start of the event, "leave_at": ISO, "travel_minutes"?, "mode"?, "note"?}  (trusted)
+        GET  /api/leaveby   → list (past ones are dropped automatically); GET ?clear=1 (trusted)"""
+        path = DATA_DIR / "leaveby.json"
+        q = parse_qs(urlparse(self.path).query)
+        mutating = self.command == "POST" or "clear" in q
+        if mutating and not self.trusted():
+            return self.deny()
+        new = None
+        if self.command == "POST":
+            body = self.body_json()
+            if body is None: return
+            event, start, leave = (str(body.get(k) or "").strip() for k in ("event", "start", "leave_at"))
+            if not (event and start and leave): return self.send_error(400, "event, start and leave_at required")
+            try:
+                datetime.fromisoformat(start); datetime.fromisoformat(leave)
+            except ValueError:
+                return self.send_error(400, "start and leave_at must be ISO-8601 datetimes")
+            new = {"event": event[:120], "start": start[:25], "leave_at": leave[:25], "note": str(body.get("note") or "")[:120],
+                   "mode": str(body.get("mode") or "drive")[:20]}
+            try:
+                if body.get("travel_minutes") is not None: new["travel_minutes"] = int(body["travel_minutes"])
+            except (TypeError, ValueError):
+                return self.send_error(400, "travel_minutes must be a number")
+        with _lock:
+            cutoff = (datetime.now().astimezone() - timedelta(days=1)).isoformat()
+            items = [i for i in read_json(path, []) if isinstance(i, dict) and str(i.get("start", "")) > cutoff]
+            if new: items = [i for i in items if not (i.get("event") == new["event"] and i.get("start") == new["start"])] + [new]
+            elif "clear" in q: items = []
+            if mutating: write_atomic(path, items[-20:])
+        self.send_json({"leaveby": items})
 
     def note(self):
         """Short updates from the agent for the Feed page's "From <agent>" column (no flash, no banner).

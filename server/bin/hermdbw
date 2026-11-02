@@ -167,7 +167,7 @@ def cmd_adopt(a):
     say(f"{C['ok']}  ssh ok{C['0']}")
     if not confirm("Run the kiosk bootstrap on the Pi (installs packages, ~10 min on a Pi 2)?", a.yes): return 1
     pi_dir = ROOT.parent / "pi"
-    for f in ("bootstrap-pi.sh", "audio-route.sh", "set-url.sh", "tailscale-up.sh"):
+    for f in ("bootstrap-pi.sh", "audio-route.sh", "tv-power.sh", "tv-wake.sh", "set-url.sh", "tailscale-up.sh"):
         subprocess.run(["scp", "-q", *ssh_opts(), str(pi_dir / f), f"{user}@{host}:~/"], check=True)
     subprocess.run(["ssh", *ssh_opts(), f"{user}@{host}", f"bash ~/bootstrap-pi.sh {url}"], check=True)
     if tail.get("kind") in ("tailscale", "headscale"):

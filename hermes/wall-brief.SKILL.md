@@ -99,15 +99,26 @@ curl -s http://127.0.0.1:8470/api/trip                # what the wall believes; 
 One destination at a time; post the next trip once the current one ends. The wall also spots "flight to X" / "trip
 to X" titles and "City, ST" locations on the calendar by itself, so a well-named calendar entry needs no post.
 
-## Short updates: the "From Sadie" column (Feed page)
-For anything worth a glance but not a flash: a job that finished, a package out for delivery, a reply you drafted,
-an overnight summary. Newest first, the wall shows the last six.
+## Short updates: the "From Sadie" column (Feed page) — off unless `notes` is in `feed_columns`
+The owner currently keeps this column off (it looked empty). If it is turned on: anything worth a glance but not a
+flash — a job that finished, a package out for delivery, an overnight summary. Newest first, the wall shows the last six.
 ```bash
 curl -s -X POST http://127.0.0.1:8470/api/note -H 'Content-Type: application/json' \
   -d '{"title": "Overnight: 4 jobs ran, 0 failed", "body": "Backups and the kernel watch were clean. Nothing needs you.", "level": "info"}'
 ```
 Rules: title ≤ 60 characters, body ≤ 2 short sentences, no markdown, one note per thing (check `GET /api/note`
 first; `?dismiss=ID` removes one). `warn`/`urgent` colour the title; use a flash alert instead when it must not be missed.
+
+## Leave-by times (events with a street address)
+Once a day, and again when the calendar changes, look at timed events in the next 24 h whose `location` is a street
+address (not a meeting link). Work out the travel time from the owner's home with your own tools (maps lookup, web),
+add 10 min of slack, and post it; the next-up card then shows "leave by 2:10 PM (25 min drive)" and turns amber
+15 min before. Match `event` and `start` exactly to the calendar entry.
+```bash
+curl -s -X POST http://127.0.0.1:8470/api/leaveby -H 'Content-Type: application/json' \
+  -d '{"event": "Dentist", "start": "2026-11-05T09:00:00-08:00", "leave_at": "2026-11-05T08:25:00-08:00", "travel_minutes": 25, "mode": "drive"}'
+curl -s http://127.0.0.1:8470/api/leaveby        # what is already posted (past entries expire by themselves)
+```
 
 ## Flash alerts on the wall (yours to use proactively)
 Post anything the owner should not miss. It flashes full-screen for `flash_seconds` (default 20), then stays as a

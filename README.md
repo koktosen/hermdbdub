@@ -23,7 +23,10 @@ Electron, no build step, and no API keys for the basics.
   strip under the countdown with today's and tomorrow's deadlines, the next trip ("✈ Austin · in 4 days · Nov 9–12 ·
   80°/61° clear") and later deadlines with a countdown; a ⚠ on double-booked events; today's agenda that keeps pace
   with the clock (finished events slide off the top) and rolls into the next days; and a five-day grid merging every
-  iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
+  iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour. When your agent works out
+  a departure time for an event with an address, the countdown card says "leave by 2:10 PM (25 min drive)".
+- **Night mode** — between the hours you set the board goes dark: a dim clock and the next event, nothing else; alerts
+  and the brief still come up. On a TV that speaks HDMI-CEC the Pi switches the TV off and on at the same hours.
 - **Feed** — crypto and stock tickers with 24 h change and sparklines (crypto Fear & Greed rides on the crypto row),
   headlines from your RSS feeds, a **"From Sadie"** column of short updates your agent posts (newest first, two lines
   each, no flashing), and optionally what's trending on X from your own account.
