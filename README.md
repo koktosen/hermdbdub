@@ -111,7 +111,7 @@ wallctl rss add "BBC" "https://…"     wallctl stocks set SPY QQQ NVDA
 wallctl crypto set bitcoin ripple     wallctl location set 39.74 -104.99 --name "Denver"
 wallctl refresh                       wallctl xusage
 ```
-Colours come from a colour-blind-safe palette; pass `--color` to override. Full reference: [`server/README.md`](server/README.md).
+Colours come from a colour-blind-safe palette; pass `--color` to override. Full reference: [`server/README.md`](server/README.md). New in the v2 look: `marquee_speed` (tape pace, 1.0 is a slow read), `sparklines`, `header_outlook` and `header_moon` (what the header carries), and `dock_tiles_by_page` (which dock tiles each page shows; by default the calendar page drops up-next and the weather page drops next-hours, since each already shows that).
 
 ## Keys (any USB keyboard, numpad or macro pad on the Pi)
 

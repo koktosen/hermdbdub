@@ -75,4 +75,12 @@ layout:
   feed_columns: [headlines, xtrends] # Feed columns: headlines | xtrends | xme | brief
   dock_tiles: [upnext, fng, hours, host]   # dock on every page: up-next events | crypto Fear & Greed | next hours | host status
   marquees: [ticker, news]           # tape lines under the dock (hidden on Feed, which shows the full versions)
+  marquee_speed: 1.0                        # tape speed multiplier (1.0 ≈ a slow read; 1.5 is the old pace)
+  sparklines: true                          # tiny 24 h lines on the ticker tiles
+  header_outlook: false                     # 5-day strip in the header (it is on the weather page anyway)
+  header_moon: true                         # moon phase in the header
+  # dock_tiles_by_page:                     # per-page override of dock_tiles; default drops upnext on calendar, hours on weather
+  #   calendar: [hours, host]
+  #   feed: [upnext, fng, hours, host]
+  #   weather: [upnext, fng, host]
   week_days: 5                       # day columns on the Calendar page

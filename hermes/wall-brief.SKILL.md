@@ -61,7 +61,7 @@ and reports (`wallctl show`, `wallctl calendar add "Name" "URL"`, `wallctl rss a
 `wallctl crypto set …`, `wallctl location set LAT LON --name X`, `wallctl refresh`). After a manual edit run
 `wallctl refresh` and check the `OK`/`FAILED` lines so you report what actually happened.
 The `layout:` section removes or reorders things: `pages`, `rotate_pages`, `ticker_rows` (crypto/stocks),
-`feed_columns` (headlines/xtrends/xme/brief), `dock_tiles` (upnext/fng/hours/host), `marquees` (ticker/news),
+`feed_columns` (headlines/xtrends/xme/brief), `dock_tiles` (upnext/fng/hours/host), `marquees` (ticker/news), `marquee_speed`, `sparklines`, `header_outlook`, `header_moon`, `dock_tiles_by_page` (per-page tiles),
 `week_days`. "I don't care about crypto fear" → drop `fng` from `dock_tiles`. The wall picks changes up within 60 s.
 
 ## Changing the wall itself (code, not config)
