@@ -38,7 +38,7 @@ def synth(text: str, voice: str | None) -> dict | None:
         subprocess.run(["piper", "--model", str(VOICE), "--sentence-silence", "0.4", "--output_file", str(wav)],
                        input=speakable(text), text=True, check=True, capture_output=True, timeout=180)
         subprocess.run(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "64k",
-                        str(mp3)], check=True, timeout=120)
+                        "-f", "mp3", str(mp3)], check=True, timeout=120)   # -f: the staging name has no .mp3 extension
         dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
                                     str(mp3)], capture_output=True, text=True, timeout=30).stdout.strip() or 0)
         os.replace(mp3, DATA / "brief.mp3")   # never let the kiosk fetch a half-written file
