@@ -7,7 +7,7 @@ import icalendar
 import recurring_ical_events
 import requests
 
-from common import load_config, write_json
+from common import load_config, write_json, scrub_urls
 
 VIDEO_RE = re.compile(r"https?://[^\s<>\"']*(?:meet\.google|zoom\.us|teams\.microsoft|webex|whereby)[^\s<>\"']*")
 
@@ -67,7 +67,7 @@ def main() -> None:
             events.extend(got)
             sources.append({"name": src["name"], "color": src.get("color"), "count": len(got)})
         except Exception as e:  # one bad feed must not blank the wall
-            errors[src["name"]] = f"{type(e).__name__}: {e}"
+            errors[src["name"]] = scrub_urls(f"{type(e).__name__}: {e}", src.get("url", ""))
     events.sort(key=lambda e: (e["start"], not e["all_day"]))
     write_json("calendar", {
         "timezone": str(tz),

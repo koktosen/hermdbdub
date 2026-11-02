@@ -5,7 +5,7 @@ import sys
 import time
 import traceback
 
-from common import load_config, write_json
+from common import load_config, scrub_urls, write_json
 
 # "calendar" would shadow the stdlib module, so the feed collector lives in cal_feeds.py
 MODULES = {"calendar": "cal_feeds", "weather": "weather", "brief": "brief", "ops": "ops",
@@ -22,8 +22,8 @@ def main(names: list) -> int:
             status[name] = {"ok": True, "ms": round((time.time() - t0) * 1000)}
         except Exception:
             failed += 1
-            status[name] = {"ok": False, "error": traceback.format_exc().strip().splitlines()[-1]}
-            print(f"[{name}] FAILED\n{traceback.format_exc()}", file=sys.stderr)
+            status[name] = {"ok": False, "error": scrub_urls(traceback.format_exc().strip().splitlines()[-1])}
+            print(f"[{name}] FAILED\n{scrub_urls(traceback.format_exc())}", file=sys.stderr)
     cfg = load_config()
     web = pathlib.Path(__file__).resolve().parent.parent / "web"
     assets_version = str(int(max(((web / f).stat().st_mtime for f in ("index.html", "app.js", "style.css") if (web / f).exists()), default=0)))

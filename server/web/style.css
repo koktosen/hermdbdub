@@ -279,4 +279,4 @@ body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed p
 
 /* Emoji glyphs always come from the colour emoji font. Without this, a text font that happens to carry the
    same code points (DejaVu Sans has monochrome moon phases) wins on some machines and the icons go black-and-white. */
-#moon .mi, #weather-strip .now, #weather-strip .day span:first-of-type, .wx-big #wx-icon, .wx-day .i, .mini .hours span:nth-child(2), #wx-chart text.ico { font-family: var(--emoji); }
+#moon .mi, #weather-strip .ico, .wx-big #wx-icon, .wx-day .i, .mini .hours span:nth-child(2), #wx-chart text.ico { font-family: var(--emoji); }

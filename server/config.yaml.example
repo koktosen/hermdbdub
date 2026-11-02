@@ -31,7 +31,7 @@ agent_name: Hermes                   # how your agent is labelled on the wall
 hermes_brief_job: ""                 # id of the Hermes cron job that writes the morning brief (hermes/install-hermes.sh prints it)
 hermes_xtrends_job: ""               # id of the Hermes cron job for X trends — only used when x_api.trends is off
 piper_voice: ""                      # Piper .onnx voice for the spoken brief, e.g. ~/.local/share/piper/en_US-amy-medium.onnx (blank = text only)
-brief_window: [5, 7]                 # local hours during which the brief card pulses "brief ready"; the takeover itself is always manual
+brief_window: [7, 11]                 # local hours during which the brief card pulses "brief ready"; the takeover itself is always manual
 
 # ---- Markets / feeds ----
 markets:

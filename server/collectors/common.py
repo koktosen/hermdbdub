@@ -1,4 +1,5 @@
 """Shared helpers for the dashboard collectors."""
+import re
 import json
 import os
 import tempfile
@@ -45,3 +46,22 @@ def hermes_latest_response(job_id: str) -> dict:
     run_time = re.search(r"\*\*Run Time:\*\*\s*(.+)", text)
     stamp = run_time.group(1).strip() if run_time else datetime.fromtimestamp(newest.stat().st_mtime).isoformat()
     return {"found": True, "file": newest.name, "run_time": stamp, "text": (m.group(1) if m else text).strip()}
+
+
+_URL = re.compile(r"https?://([^/\s'\"<>]+)[^\s'\"<>]*")
+
+_PATH_HINT = re.compile(r"(with url: )\S+")
+
+def scrub_urls(text: str, *known: str) -> str:
+    """Replace every URL in text with its host only, and strip the path/query of any `known` URL wherever it
+    appears (requests phrases errors as "... with url: /path?token=..."). Private calendar/feed addresses are
+    credentials, so nothing that reaches a log, status.json or the agent may carry them."""
+    from urllib.parse import urlsplit
+    text = str(text)
+    for u in known:
+        if not u: continue
+        parts = urlsplit(u)
+        for frag in (u, parts.path + ("?" + parts.query if parts.query else ""), parts.path):
+            if frag and len(frag) > 1: text = text.replace(frag, "…")
+    text = _PATH_HINT.sub(r"\1…", text)
+    return _URL.sub(lambda m: f"https://{m.group(1)}/…", text)

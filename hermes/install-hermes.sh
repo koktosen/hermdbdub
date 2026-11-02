@@ -10,7 +10,8 @@ echo "==> skill → $HERMES_HOME/skills/wall-brief/SKILL.md"
 mkdir -p "$HERMES_HOME/skills/wall-brief"
 cp "$HERE/wall-brief.SKILL.md" "$HERMES_HOME/skills/wall-brief/SKILL.md"
 
-job_id() { hermes cron list 2>/dev/null | grep -F "$1" | grep -oE '[0-9a-f]{12}' | head -1 || true; }
+# `hermes cron list` prints "  <id> [state]" and then "    Name: <name>" two lines later.
+job_id() { hermes cron list 2>/dev/null | awk -v n="$1" '/^  [0-9a-f]{12} \[/ { id = $1 } $1 == "Name:" && $2 == n { print id; exit }' || true; }
 ensure_job() {  # name schedule promptfile deliver
 	local id; id="$(job_id "$1")"
 	if [[ -z "$id" ]]; then
@@ -22,7 +23,7 @@ ensure_job() {  # name schedule promptfile deliver
 	fi
 	echo "    $1 = $id"
 }
-ensure_job "hermdbw-morning-brief" "30 7 * * *" "$HERE/prompts/morning-brief.md" "telegram"
+ensure_job "hermdbw-morning-brief" "30 7 * * *" "$HERE/prompts/morning-brief.md" "local"
 ensure_job "hermdbw-x-trends"      "0 7-22/3 * * *" "$HERE/prompts/x-trends.md"  "local"
 
 cat <<MSG

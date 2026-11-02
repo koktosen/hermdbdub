@@ -77,7 +77,8 @@ def validate_calendar(url: str) -> dict:
         ev = cal_feeds.events_from(cal_feeds.fetch(url), {"name": "test", "color": "#000"}, tz, start, start + timedelta(days=14))
         return {"ok": True, "events_14d": len(ev), "sample": [e["title"] for e in ev[:3]]}
     except Exception as e:
-        return {"ok": False, "error": f"{type(e).__name__}: {str(e)[:120]}"}
+        from common import scrub_urls
+        return {"ok": False, "error": scrub_urls(f"{type(e).__name__}: {str(e)}", url)[:120]}
 
 
 def cloudinit(state: dict) -> dict:

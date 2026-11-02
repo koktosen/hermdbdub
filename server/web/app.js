@@ -75,14 +75,14 @@
     if (e.key === "+" || e.key === "Add") return step(1);
     if (e.key === "-" || e.key === "Subtract") return step(-1);
     if (e.key === "*" || e.key === "Multiply") { paused = !paused; scheduleRotate(); setStatus(); return; }
-    if (e.key === "/" || e.key === "Divide") return location.reload();
+    if (e.key === "/" || e.key === "Divide") return safeReload();
     const key = (e.location === 3 && NUMPAD_ALIAS[e.key]) || e.key;   // location 3 = numeric keypad
     const n = Number(key);
     if (n >= 1 && n <= PAGES.length) { show(PAGES[n - 1], PAGES.indexOf(PAGES[n - 1]) >= PAGES.indexOf(current) ? 1 : -1); scheduleRotate(); }
     else if (e.key === "ArrowRight" || e.key === "PageDown") step(1);
     else if (e.key === "ArrowLeft" || e.key === "PageUp") step(-1);
     else if (e.key === " ") { paused = !paused; scheduleRotate(); setStatus(); }
-    else if (e.key === "r") location.reload();
+    else if (e.key === "r") safeReload();
   });
 
   // ---------- clock ----------
@@ -96,7 +96,13 @@
 
   // ---------- data ----------
   let assetsVersion = null;  // status.json assets_version at page load; a change means new web files were deployed
-  let fetchFails = 0;  // consecutive refresh cycles with no reachable server → reload (clears stale connections after a network move)
+  let pendingReload = false; // a deploy or a stuck state wants a reload, but a takeover/flash is up
+  let fetchFails = 0;
+  // Never navigate blind: if the server is down the kiosk browser would park on its error page and stop polling.
+  // Probe first; while the probe fails the page simply keeps showing what it has and tries again next cycle.
+  async function safeReload() {
+    try { const r = await fetch(`index.html?probe=${Date.now()}`, { cache: "no-store" }); if (r.ok) location.reload(); } catch (e) { /* still down */ }
+  }  // consecutive refresh cycles with no reachable server → reload (clears stale connections after a network move)
   async function load(name) {
     try {
       const r = await fetch(`data/${name}.json`, { cache: "no-store" });
@@ -107,10 +113,10 @@
   async function refresh() {
     const results = await Promise.all(["calendar", "weather", "brief", "ops", "markets", "rss", "xtrends", "xme", "xusage", "fng", "status"].map(load));
     fetchFails = results.some(Boolean) ? 0 : fetchFails + 1;
-    if (fetchFails >= 3 && !tk.open && !flashing) location.reload();
     data.config = data.status?.config || data.config;
     const av = data.status?.assets_version;
-    if (av) { if (assetsVersion && av !== assetsVersion && !tk.open && !flashing) location.reload(); assetsVersion = av; }
+    if (av) { if (!assetsVersion) assetsVersion = av; else if (av !== assetsVersion) pendingReload = true; }
+    if ((fetchFails >= 3 || pendingReload) && !tk.open && !flashing) safeReload();
     applyLayout(); renderWeather(); renderDock(); render(current); setStatus();
     if (!rotateTimer) scheduleRotate();
   }
@@ -190,9 +196,9 @@
     const c = w.current;
     const days = (w.daily || []).slice(0, 5).map((d) => {
       const dt = new Date(d.date + "T12:00");
-      return `<div class="day"><span>${dt.toLocaleDateString([], { weekday: "short" })}</span><span>${d.icon}</span><b>${d.hi}°</b><span>${d.lo}°</span></div>`;
+      return `<div class="day"><span>${dt.toLocaleDateString([], { weekday: "short" })}</span><span class="ico">${d.icon}</span><b>${d.hi}°</b><span>${d.lo}°</span></div>`;
     }).join("");
-    el.innerHTML = `<span class="now">${c.icon} ${c.temp}°</span><span><span class="where">${esc(w.location || "")}</span> · ${esc(c.label)} · feels ${c.feels}°</span>${days}`;
+    el.innerHTML = `<span class="now"><span class="ico">${c.icon}</span> ${c.temp}°</span><span><span class="where">${esc(w.location || "")}</span> · ${esc(c.label)} · feels ${c.feels}°</span>${days}`;
   }
 
   // ---------- calendar ----------
@@ -466,6 +472,7 @@
     if (!flashing) return;
     seenAlerts.add(flashing.id); localStorage.setItem("alertsSeen", JSON.stringify([...seenAlerts].slice(-200)));
     flashing = null; $("#alert-flash").hidden = true; paused = false; scheduleRotate();
+    if (pendingReload && !tk.open) safeReload();
   }
   async function pollAlerts() {
     try {
@@ -514,6 +521,7 @@
     tk.open = false; paused = false; clearTimeout(tk.timer);
     const audio = $("#tk-audio"); audio.pause(); audio.removeAttribute("src"); audio.load();
     tk.anim?.cancel(); $("#takeover").hidden = true;
+    if (pendingReload && !flashing) safeReload();
     renderBriefCue(); scheduleRotate(); setStatus();
   }
   async function pollTrigger() {

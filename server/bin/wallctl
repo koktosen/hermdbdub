@@ -57,14 +57,14 @@ def report(result: dict, extra: str = "") -> int:
 
 
 def cmd_show(a):
-    cfg = load()
+    cfg = load(); lay = cfg.get("layout") or {}
     out = {
         "timezone": cfg.get("timezone"), "location": dict(cfg.get("location") or {}),
         "calendars": [{"name": c.get("name"), "color": c.get("color"), "url": c.get("url") if a.full else redact(c.get("url"))} for c in cfg.get("calendars", [])],
         "rss_feeds": [{"name": f.get("name"), "url": f.get("url")} for f in cfg.get("rss_feeds", [])],
         "markets": {"crypto": list(cfg.get("markets", {}).get("crypto", [])), "stocks": list(cfg.get("markets", {}).get("stocks", []))},
-        "pages": list(cfg.get("pages", [])), "rotate_pages": list(cfg.get("rotate_pages", [])), "rotate_seconds": cfg.get("rotate_seconds"),
-        "brief_window": list(cfg.get("brief_window", [])),
+        "layout": {k: lay.get(k) for k in ("pages", "rotate_pages", "feed_columns", "dock_tiles", "marquees", "ticker_rows", "week_days") if k in lay},
+        "rotate_seconds": cfg.get("rotate_seconds"), "brief_window": list(cfg.get("brief_window", [])),
     }
     print(json.dumps(out, indent=1)); return 0
 
@@ -134,12 +134,14 @@ def cmd_location(a):
 
 
 def cmd_set(a):
-    allowed = {"rotate_seconds": int, "calendar_days": int, "timezone": str, "brief_window": "list", "rotate_pages": "list"}
+    allowed = {"rotate_seconds": int, "calendar_days": int, "timezone": str, "brief_window": "list",
+               "pages": "list", "rotate_pages": "list", "feed_columns": "list", "dock_tiles": "list", "marquees": "list", "week_days": int}
+    layout_keys = {"pages", "rotate_pages", "feed_columns", "dock_tiles", "marquees", "week_days"}   # these live under layout:
     if a.key not in allowed: print(f"key must be one of {sorted(allowed)}"); return 1
-    cfg = load()
-    if allowed[a.key] == "list": cfg[a.key] = [int(x) if x.isdigit() else x for x in re.split(r"[,\s]+", a.value.strip())]
-    else: cfg[a.key] = allowed[a.key](a.value)
-    save(cfg); return report(refresh("ops"), f"{a.key} = {cfg[a.key]}")
+    cfg = load(); target = cfg.setdefault("layout", {}) if a.key in layout_keys else cfg
+    if allowed[a.key] == "list": target[a.key] = [int(x) if x.isdigit() else x for x in re.split(r"[,\s]+", a.value.strip())]
+    else: target[a.key] = allowed[a.key](a.value)
+    save(cfg); return report(refresh("ops"), f"{a.key} = {target[a.key]}")
 
 
 def cmd_xusage(a):
