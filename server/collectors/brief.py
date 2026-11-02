@@ -34,7 +34,7 @@ def synth(text: str, voice: str | None) -> dict | None:
         return prev
     with tempfile.TemporaryDirectory() as td:
         wav = Path(td) / "brief.wav"
-        mp3 = Path(td) / "brief.mp3"
+        mp3 = DATA / ".brief.mp3.tmp"   # same filesystem as the destination, so the final rename is atomic
         subprocess.run(["piper", "--model", str(VOICE), "--sentence-silence", "0.4", "--output_file", str(wav)],
                        input=speakable(text), text=True, check=True, capture_output=True, timeout=180)
         subprocess.run(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "64k",
