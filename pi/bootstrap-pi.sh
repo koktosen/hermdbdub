@@ -73,8 +73,10 @@ sudo raspi-config nonint do_boot_behaviour B1 || true   # B1 = console, login re
 sudo rm -f /etc/systemd/system/getty@tty1.service.d/autologin.conf
 
 log "journal: persistent and capped, so yesterday's kiosk crash is still readable"
-sudo mkdir -p /var/log/journal
-sudo sed -i 's/^#\?Storage=.*/Storage=persistent/; s/^#\?SystemMaxUse=.*/SystemMaxUse=32M/' /etc/systemd/journald.conf
+# Raspberry Pi OS ships /usr/lib/systemd/journald.conf.d/40-rpi-volatile-storage.conf (Storage=volatile), which
+# overrides journald.conf itself; only a later-sorting drop-in wins.
+sudo mkdir -p /var/log/journal /etc/systemd/journald.conf.d
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=32M\n' | sudo tee /etc/systemd/journald.conf.d/50-hermdbw-persistent.conf >/dev/null
 
 log "seatd: let the kiosk user open DRM/input without X"
 sudo systemctl enable --now seatd
