@@ -78,10 +78,12 @@ board, so prefer CSS transitions and transform animations over per-frame JavaScr
 screenshot before saying it is done:
 ```bash
 node --check ~/dev/hermdbw/server/web/app.js
+S=~/.var/app/com.brave.Browser/cache/shots; mkdir -p $S    # Brave's sandbox can only write under ~/.var/app/com.brave.Browser
 flatpak run com.brave.Browser --headless=new --disable-gpu --hide-scrollbars --window-size=1920,1080 \
-  --virtual-time-budget=9000 --screenshot=/tmp/wall.png "http://127.0.0.1:8470/?page=calendar"   # or feed / weather
+  --virtual-time-budget=9000 --user-data-dir=$S/prof --screenshot=$S/wall.png "http://127.0.0.1:8470/?page=calendar&rotate=0"   # or feed / weather
 ```
-Look at the image. Then commit on `main` in `~/dev/hermdbw` with a one-line message of what changed and push.
+Paths outside that directory make Brave hang silently with no file; the first run on a fresh profile can take a
+minute, later ones about ten seconds. Look at the image. Then commit on `main` in `~/dev/hermdbw` with a one-line message of what changed and push.
 The wall reloads itself within five minutes of a change (the collectors stamp the web files' version into
 `status.json`), so no one has to touch the Pi. Never put secrets, private URLs or the owner's location into the repo.
 
