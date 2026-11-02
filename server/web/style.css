@@ -65,9 +65,11 @@ body.init .page, .page.settle { transition: none; }
 .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: .8rem 1rem; }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; }
 
-.hero { margin-bottom: var(--gap); }
+.hero { margin-bottom: var(--gap); min-height: 7.6rem; }
 .hero .label { font-size: .8rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
-.hero .title { font-size: 1.45rem; font-weight: 700; margin: 4px 0; }
+.hero .title { font-size: 1.45rem; font-weight: 700; margin: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero .title .dot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; margin-right: .4em; }
+.hero .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero .countdown { font-size: 2.3rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
 .hero .meta { color: var(--ink-2); font-size: .9rem; }
 .hero { position: relative; }
@@ -83,7 +85,8 @@ body.init .page, .page.settle { transition: none; }
 .ev.major .ttl::after { content: "reminder"; font-size: .65rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--surface-0); background: var(--warning); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
 .chip.major { background: rgba(250, 178, 25, .14); border-left-width: 6px; }
 .chip.major .cn { color: var(--warning); }
-.major-strip { margin: calc(-1 * var(--gap) + .4rem) 0 var(--gap); display: grid; gap: .3rem; }
+.major-strip { margin: calc(-1 * var(--gap) + .4rem) 0 var(--gap); display: grid; gap: .3rem; height: 3.3rem; align-content: start; overflow: hidden; }
+.major-strip .mj.none { border-color: var(--line); background: transparent; } .major-strip .mj.none b { color: var(--ink-3); font-weight: 500; }
 .major-strip .mj { display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: baseline; padding: .3rem .7rem; border-left: 4px solid var(--warning); border-radius: 6px; background: rgba(250, 178, 25, .12); font-size: .9rem; }
 .major-strip .mj b { color: var(--warning); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .major-strip .mj.urgent { border-color: var(--critical); background: rgba(208, 59, 59, .14); } .major-strip .mj.urgent b { color: #ff7a7a; }
@@ -154,14 +157,16 @@ body.init .page, .page.settle { transition: none; }
 .scroller { will-change: transform; }
 .sadie { border-color: #9085e9; }
 .sadie .brief-body { font-size: 1rem; line-height: 1.45; margin-top: 4px; }
-#dock { padding: .45rem var(--pad) .45rem; border-top: 1px solid var(--line); display: grid; gap: .35rem; }
-.bottom-strip { display: grid; grid-template-columns: 1.6fr .7fr 1.5fr .9fr; gap: .55rem; }
+#dock { padding: .45rem var(--pad) .45rem; border-top: 1px solid var(--line); display: grid; gap: .35rem; position: relative; }
+.bottom-strip { display: grid; grid-template-columns: 1.6fr .7fr 1.5fr .9fr; gap: .55rem; height: 5.7rem; }   /* fixed: the dock never changes the page height */
+.mini.upnext .ev .ttl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.mini.upnext .ev .ttl .dot { display: inline-block; vertical-align: middle; margin-right: .4em; }
 .marquee { overflow: hidden; white-space: nowrap; height: 1.6rem; line-height: 1.6rem; font-size: .85rem; mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
 .mq-track { display: inline-block; will-change: transform; }
 .mq-track span.item { margin-right: 2.2rem; }
 .mq-track .up { color: var(--good); } .mq-track .down { color: var(--critical); }
 .mq-track .sym { font-weight: 700; } .mq-track .src { color: var(--ink-3); margin-right: .5rem; text-transform: uppercase; font-size: .7rem; letter-spacing: .05em; }
-body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed page already shows the full versions */
+/* The tapes run on every page so the page area is the same height everywhere (a page must never re-layout mid-switch). */
 .mini.upnext .ev { grid-template-columns: 4.6rem 1fr auto; padding: 3px 0; font-size: .85rem; }
 .mini.upnext .ev .cd { color: var(--accent); font-variant-numeric: tabular-nums; font-size: .8rem; }
 .mini .hours { display: flex; justify-content: space-between; margin-top: 4px; }
@@ -169,9 +174,10 @@ body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed p
 .mini .hours b { color: var(--ink); font-weight: 600; font-size: .8rem; }
 .gauge { position: relative; height: 10px; border-radius: 5px; margin-top: 8px; background: linear-gradient(90deg, #d03b3b, #fab219 50%, #0ca30c); }
 .gauge i { position: absolute; top: -4px; width: 4px; height: 18px; border-radius: 2px; background: var(--ink); transform: translateX(-2px); }
-.mini .hostline { display: flex; gap: 14px; flex-wrap: wrap; font-size: .8rem; color: var(--ink-2); margin-top: 4px; }
+.mini .hostline { display: flex; gap: 14px; font-size: .8rem; color: var(--ink-2); margin-top: 4px; white-space: nowrap; overflow: hidden; }
+.mini .hostline > span { flex: none; }
 .mini .hostline b { color: var(--ink); }
-.mini { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: .35rem .55rem; min-width: 0; }
+.mini { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius); padding: .35rem .55rem; min-width: 0; min-height: 0; overflow: hidden; }
 .mini .th { font-size: .7rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .mini .v small { font-size: .75rem; font-weight: 400; color: var(--ink-2); }
@@ -263,7 +269,8 @@ body.page-feed #mq-ticker, body.page-feed #mq-news { display: none; }  /* feed p
 .af-title { font-size: 3rem; font-weight: 700; line-height: 1.15; }
 .af-body { font-size: 1.5rem; line-height: 1.45; color: var(--ink-2); margin-top: 18px; white-space: pre-wrap; }
 .af-hint { margin-top: 30px; font-size: .85rem; }
-.alert-bar { display: flex; gap: 1.3rem; align-items: center; padding: .35rem var(--pad); background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: .95rem; overflow: hidden; white-space: nowrap; }
+.alert-bar { position: absolute; left: var(--pad); right: var(--pad); bottom: .45rem; height: 1.6rem; display: flex; gap: 1.3rem; align-items: center; padding: 0 .6rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; font-size: .95rem; overflow: hidden; white-space: nowrap; z-index: 3; }
+body.has-alerts #mq-news { visibility: hidden; }   /* the banner sits exactly over the news tape: no layout shift */
 .alert-bar[hidden] { display: none; }
 .alert-bar .ab { display: inline-flex; gap: 10px; align-items: center; }
 .alert-bar .ab::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
