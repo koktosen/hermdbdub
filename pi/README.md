@@ -18,7 +18,9 @@ ssh <user>@<pi> 'bash bootstrap-pi.sh http://<server-ip>:8470/ && sudo reboot'
 ```
 Idempotent. Installs `cog`, `wpewebkit-driver`, `libgles2` (without it the renderer crash-loops), `seatd`, GStreamer
 audio plugins (for the spoken brief over HDMI), `fbi`, `log2ram` (spares the SD card); sets the Wi-Fi regulatory
-domain (`WIFI_COUNTRY=US` by default), `gpu_mem=128`, HDMI audio as the ALSA default, tty1 autologin, and a
+domain (`WIFI_COUNTRY=US` by default), `gpu_mem=16`, the 3.5 mm jack as the ALSA default (`AUDIO_CARD=1` for HDMI,
+if your TV actually has an audio sink), a persistent capped journal, no console autologin, a 600 MB memory cap and a
+04:35 nightly restart for the browser, and a
 `systemd --user` `kiosk.service` (with linger) that runs `~/.local/bin/kiosk.sh`. The launcher waits until the URL
 answers before starting the browser, so a server reboot or a network move just delays the picture.
 
@@ -47,8 +49,10 @@ For the server, use your distribution's equivalent (`unattended-upgrades` on Deb
 
 ## No monitor attached?
 Without a display there is no EDID, the DRM connector reads *disconnected*, `cog` can't start and HDMI audio can't
-open. The bootstrap adds `video=HDMI-A-1:1920x1080@60D` to `/boot/firmware/cmdline.txt` so the output is forced on;
-audio still needs a real sink, so test the spoken brief with the TV connected.
+open. The bootstrap adds `video=HDMI-A-1:<HDMI_MODE>@60D` (default `1600x900`) to `/boot/firmware/cmdline.txt` so the
+output is forced on. Use a mode your TV lists in `/sys/class/drm/card0-HDMI-A-1/modes`; the kernel ignores one it
+lacks (`User-defined mode not supported` in `dmesg`) and silently falls back to the TV's preferred mode. A 128-byte
+EDID means no audio block: that TV will never play the spoken brief over HDMI, use the jack.
 
 ## Wall on another network
 ```bash

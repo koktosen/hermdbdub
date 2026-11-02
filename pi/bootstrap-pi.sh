@@ -49,22 +49,32 @@ log "wifi: regulatory domain ${WIFI_COUNTRY} (unlocks wlan0 for the USB dongle)"
 sudo raspi-config nonint do_wifi_country "$WIFI_COUNTRY" || true
 sudo rfkill unblock wifi || true
 
-log "audio: default ALSA device = HDMI (card 1)"
-printf 'defaults.pcm.card 1\ndefaults.ctl.card 1\n' | sudo tee /etc/asound.conf >/dev/null
+# Default ALSA device. AUDIO_CARD=1 is HDMI; most small TVs expose no HDMI audio sink at all (128-byte EDID,
+# no ELD), in which case the 3.5 mm jack (card 0) with a powered speaker is the only thing that will play.
+AUDIO_CARD="${AUDIO_CARD:-0}"
+log "audio: default ALSA device = card ${AUDIO_CARD} (0 = 3.5 mm jack, 1 = HDMI)"
+printf 'defaults.pcm.card %s\ndefaults.ctl.card %s\n' "$AUDIO_CARD" "$AUDIO_CARD" | sudo tee /etc/asound.conf >/dev/null
 
-log "boot config: gpu_mem=128, no overscan, keep HDMI alive"
+log "boot config: gpu_mem=16 (full KMS renders on the ARM side; the firmware needs almost nothing), no overscan"
 CFG=/boot/firmware/config.txt
-grep -q '^gpu_mem=' "$CFG" || echo 'gpu_mem=128' | sudo tee -a "$CFG" >/dev/null
-grep -q '^hdmi_blanking=' "$CFG" || echo 'hdmi_blanking=0' | sudo tee -a "$CFG" >/dev/null
+if grep -q '^gpu_mem=' "$CFG"; then sudo sed -i 's/^gpu_mem=.*/gpu_mem=16/' "$CFG"; else echo 'gpu_mem=16' | sudo tee -a "$CFG" >/dev/null; fi
+sudo sed -i '/^hdmi_blanking=/d' "$CFG"      # legacy firmware knob, no effect under vc4-kms
 
-log "console: disable blanking, autologin ${USER_NAME} on tty1"
-sudo raspi-config nonint do_boot_behaviour B2 || true   # B2 = console autologin
-sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
-sudo tee /etc/systemd/system/getty@tty1.service.d/autologin.conf >/dev/null <<UNIT
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin ${USER_NAME} --noclear %I \$TERM
-UNIT
+# Force the HDMI output on at the TV's real mode even when the TV is off at boot (no EDID -> no connector otherwise).
+# HDMI_MODE must be one the TV lists in /sys/class/drm/card0-HDMI-A-1/modes; a mode it lacks is ignored by the kernel.
+HDMI_MODE="${HDMI_MODE:-1600x900}"
+log "cmdline: video=HDMI-A-1:${HDMI_MODE}@60D"
+CMD=/boot/firmware/cmdline.txt
+if grep -q 'video=HDMI-A-1:' "$CMD"; then sudo sed -i -E "s/video=HDMI-A-1:[^ ]*/video=HDMI-A-1:${HDMI_MODE}@60D/" "$CMD"
+else sudo sed -i -E "s/\s*$/ video=HDMI-A-1:${HDMI_MODE}@60D/" "$CMD"; fi
+
+log "console: no autologin (a root-capable shell must not sit behind the kiosk; the numpad's keys reach tty1 too)"
+sudo raspi-config nonint do_boot_behaviour B1 || true   # B1 = console, login required
+sudo rm -f /etc/systemd/system/getty@tty1.service.d/autologin.conf
+
+log "journal: persistent and capped, so yesterday's kiosk crash is still readable"
+sudo mkdir -p /var/log/journal
+sudo sed -i 's/^#\?Storage=.*/Storage=persistent/; s/^#\?SystemMaxUse=.*/SystemMaxUse=32M/' /etc/systemd/journald.conf
 
 log "seatd: let the kiosk user open DRM/input without X"
 sudo systemctl enable --now seatd
@@ -87,21 +97,42 @@ chmod +x "$USER_HOME/.local/bin/kiosk.sh"
 cat > "$USER_HOME/.config/systemd/user/kiosk.service" <<UNIT
 [Unit]
 Description=hermdbw HDMI kiosk (cog -> dashboard)
-After=network-online.target
 StartLimitIntervalSec=0
 
 [Service]
 ExecStart=${USER_HOME}/.local/bin/kiosk.sh ${URL}
 Restart=always
 RestartSec=5
+MemoryMax=600M
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 
 [Install]
 WantedBy=default.target
 UNIT
+# WPE's web process grows over days (450 MB seen after three); a nightly restart bounds it and also picks up
+# the WebKit packages unattended-upgrades installed overnight.
+cat > "$USER_HOME/.config/systemd/user/kiosk-restart.service" <<UNIT
+[Unit]
+Description=restart the kiosk browser (bounds WPE memory growth; picks up overnight WebKit upgrades)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user restart kiosk.service
+UNIT
+cat > "$USER_HOME/.config/systemd/user/kiosk-restart.timer" <<UNIT
+[Unit]
+Description=nightly kiosk restart
+
+[Timer]
+OnCalendar=*-*-* 04:35:00
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
+UNIT
 sudo loginctl enable-linger "$USER_NAME"
 systemctl --user daemon-reload
-systemctl --user enable kiosk.service
+systemctl --user enable kiosk.service kiosk-restart.timer
 
 log "done. Reboot to start the kiosk:  sudo reboot"
 echo "Dashboard URL: ${URL}"

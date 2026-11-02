@@ -242,7 +242,7 @@ def cmd_doctor(a):
     state = ls.load(); ans = state.get("answers", {})
     host = a.host or (f"{ans['pi_hostname']}.local" if ans.get("pi_hostname") else None); user = ans.get("pi_user", "wall")
     if host:
-        r = run(["ssh", *ssh_opts(), f"{user}@{host}", "systemctl --user is-active kiosk; pgrep -c cog; cat /sys/class/drm/card0-HDMI-A-1/status 2>/dev/null; tailscale ip -4 2>/dev/null | head -1; sudo -n journalctl _SYSTEMD_USER_UNIT=kiosk.service --since -30min --no-pager 2>/dev/null | grep -c Crash; true"])
+        r = run(["ssh", *ssh_opts(), f"{user}@{host}", "systemctl --user is-active kiosk; pgrep -c cog; cat /sys/class/drm/card0-HDMI-A-1/status 2>/dev/null; tailscale ip -4 2>/dev/null | head -1; sudo -n journalctl _SYSTEMD_USER_UNIT=kiosk.service --since -30min --no-pager 2>/dev/null | grep -c Crash; echo $(wc -c < /sys/class/drm/card0-HDMI-A-1/edid 2>/dev/null) $(head -1 /sys/class/drm/card0-HDMI-A-1/modes 2>/dev/null) $(grep -o 'video=HDMI-A-1:[^ ]*' /boot/firmware/cmdline.txt 2>/dev/null); true"])
         if r.returncode == 255: add("fail", f"pi {host}", "no SSH: " + r.stderr.strip().splitlines()[-1][:80] if r.stderr.strip() else "no SSH", "is it on? run: hermdbw adopt")
         else:
             lines = r.stdout.split("\n") + [""] * 5
@@ -251,6 +251,12 @@ def cmd_doctor(a):
             add("ok" if lines[2].strip() == "connected" else "warn", "pi HDMI", lines[2].strip() or "unknown", "no display detected (forced mode keeps the kiosk alive; audio needs a real TV)")
             if lines[3].strip(): add("ok", "pi tailnet", lines[3].strip())
             if lines[4].strip() not in ("", "0"): add("warn", "pi renderer crashes (30 min)", lines[4].strip(), "sudo apt install libgles2; check memory")
+            edid, pref, forced = (lines[5].split() + ["", "", ""])[:3]
+            if pref:
+                forced_mode = forced.split(":")[-1].split("@")[0] if forced else ""
+                audio = "no HDMI audio block (use the jack)" if edid and int(edid) <= 128 else "HDMI audio block present"
+                add("ok" if not forced_mode or forced_mode == pref else "warn", "pi display", f"TV prefers {pref}, forced {forced_mode or 'nothing'}, EDID {edid or '?'} B: {audio}",
+                    f"set HDMI_MODE={pref} in cmdline.txt (video=HDMI-A-1:{pref}@60D)")
     else: add("warn", "pi", "no Pi named in /setup yet", "answer the board + name cards, then: hermdbw flash / adopt")
     worst = "ok"
     for s, what, detail, fix in rows:
