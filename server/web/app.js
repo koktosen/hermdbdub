@@ -65,6 +65,7 @@
     $("#mq-ticker").hidden = !mq.includes("ticker"); $("#mq-news").hidden = !mq.includes("news");
     $("#dock").hidden = !layout("dock_tiles", ["upnext"]).length && !mq.length;
     $("#brief-title").textContent = data.config?.agent_name || "Brief";
+    document.body.classList.toggle("no-sparklines", data.config?.sparklines === false);
   }
   applyLayout();
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { show(b.dataset.page); scheduleRotate(); } });
@@ -219,7 +220,25 @@
   // ---------- calendar ----------
   // Parsed once per data refresh; every renderer reads this instead of re-parsing dates on each tick.
   let EV = [];
-  function parseEvents() { EV = (data.calendar?.events || []).map((e) => ({ ...e, s: new Date(e.start), e: new Date(e.end) })); return EV; }
+  // Calendar colours come from config and can be anything; clamp lightness so dots and borders read on dark.
+  const toneCache = new Map();
+  function tone(hex) {
+    if (toneCache.has(hex)) return toneCache.get(hex);
+    let out = hex;
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+    if (m) {
+      const n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+      let h = 0, sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+      if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      const L = Math.min(.72, Math.max(.5, l)), S = Math.min(sat, .85);
+      const c = (1 - Math.abs(2 * L - 1)) * S, x = c * (1 - Math.abs((h % 2) - 1)), m0 = L - c / 2;
+      const [R, G, B] = h < 1 ? [c, x, 0] : h < 2 ? [x, c, 0] : h < 3 ? [0, c, x] : h < 4 ? [0, x, c] : h < 5 ? [x, 0, c] : [c, 0, x];
+      out = "#" + [R, G, B].map((v) => Math.round((v + m0) * 255).toString(16).padStart(2, "0")).join("");
+    }
+    toneCache.set(hex, out); return out;
+  }
+  function parseEvents() { EV = (data.calendar?.events || []).map((e) => ({ ...e, color: tone(e.color), s: new Date(e.start), e: new Date(e.end) })); return EV; }
   function events() { return EV; }
   // ---------- attention: which events deserve the yellow/pulse treatment and which are must-not-miss ----------
   const ATTENTION = {
@@ -400,7 +419,7 @@
     const tiles = layout("dock_tiles", ["upnext", "fng", "hours", "host"]).filter((k) => !(k === "upnext" && current === "calendar"));
     const want = (k) => tiles.includes(k);
     // Up next: the next three timed events across all calendars
-    const next = events().filter((e) => !e.all_day && e.e > now).slice(0, 3);
+    const next = events().filter((e) => !e.all_day && e.e > now).slice(0, 2);
     const cd = (e) => { const m = Math.max(0, Math.round((e.s - now) / 60000)); return e.s <= now ? "now" : m < 60 ? `in ${m}m` : m < 1440 ? `in ${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `in ${Math.round(m / 1440)}d`; };
     if (want("upnext")) t.push(`<div class="mini upnext"><div class="th">up next</div>${next.map((e) => `<div class="ev"><div class="t">${sameDay(e.s, now) ? fmtT(e.s) : e.s.toLocaleDateString([], { weekday: "short" }) + " " + fmtT(e.s)}</div><div class="ttl"><span class="dot" style="background:${esc(e.color)}"></span>${esc(e.title)}</div><div class="cd">${cd(e)}</div></div>`).join("") || `<div class="muted">nothing scheduled</div>`}</div>`);
     // Crypto Fear & Greed
@@ -409,7 +428,7 @@
     // Next hours of weather
     const w = data.weather || {};
     const hrs = (w.hourly || []).filter((h) => new Date(h.time) >= now).slice(0, 8);
-    if (want("hours")) t.push(`<div class="mini"><div class="th">next hours · ${esc(w.location || "")}</div><div class="hours">${hrs.map((h) => `<div><span>${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</span><span>${esc(h.icon)}</span><b>${esc(h.temp)}°</b><span>${h.pop ? esc(h.pop) + "%" : ""}</span></div>`).join("") || `<span class="muted">${w.error ? "weather unavailable" : "no location set"}</span>`}</div></div>`);
+    if (want("hours")) t.push(`<div class="mini"><div class="th">next hours · ${esc(w.location || "")}</div><div class="hours">${hrs.map((h) => `<div><span>${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</span><span>${esc(h.icon)}</span><b>${esc(h.temp)}°</b></div>`).join("") || `<span class="muted">${w.error ? "weather unavailable" : "no location set"}</span>`}</div></div>`);
     // host in one line
     const o = data.ops || {}, sys = o.system || {}, svc = Object.entries(o.services || {});
     const onDemand = new Set(o.services_on_demand || []);
@@ -463,19 +482,19 @@
     const box = $("#wx-chart");
     if (!box.clientWidth || !box.clientHeight) { requestAnimationFrame(renderWeatherPage); return; } // laid out next frame
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    const W = box.clientWidth, H = box.clientHeight, padL = 2 * rem, padR = rem, padT = 2.4 * rem, padB = 2.1 * rem;
+    const W = box.clientWidth, H = box.clientHeight, padL = 1.4 * rem, padR = 1.4 * rem, padT = 3.2 * rem, padB = 2 * rem;
     const temps = hrs.map((h) => h.temp), lo = Math.min(...temps) - 4, hi = Math.max(...temps) + 4;
     const x = (i) => padL + (i / Math.max(1, hrs.length - 1)) * (W - padL - padR);
     const y = (t) => padT + (1 - (t - lo) / (hi - lo)) * (H - padT - padB);
     const bw = (W - padL - padR) / Math.max(1, hrs.length) * 0.7;
     const bars = hrs.map((h, i) => `<rect class="pop" x="${x(i) - bw / 2}" y="${H - padB - (h.pop / 100) * (H - padT - padB)}" width="${bw}" height="${(h.pop / 100) * (H - padT - padB)}" rx="3"/>`).join("");
     const line = `<path class="temp" d="M${hrs.map((h, i) => `${x(i).toFixed(1)},${y(h.temp).toFixed(1)}`).join(" L")}"/>`;
-    const labels = hrs.map((h, i) => i % 3 === 0 ? `<text x="${x(i)}" y="${H - 0.6 * rem}" text-anchor="middle">${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</text><text class="t" x="${x(i)}" y="${y(h.temp) - 0.55 * rem}" text-anchor="middle">${h.temp}°</text><text class="ico" x="${x(i)}" y="${y(h.temp) - 1.55 * rem}" text-anchor="middle">${h.icon}</text>` : "").join("");
-    $("#wx-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block"><line class="grid" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>${bars}${line}${labels}<text class="legend" x="${W - padR}" y="${0.9 * rem}" text-anchor="end">line = temperature · bars = chance of rain</text></svg>`;
+    const labels = hrs.map((h, i) => i % 3 === 0 ? `<text x="${x(i)}" y="${H - 0.6 * rem}" text-anchor="middle">${new Date(h.time).toLocaleTimeString([], { hour: "numeric" })}</text><text class="t" x="${x(i)}" y="${y(h.temp) - 0.6 * rem}" text-anchor="middle">${esc(h.temp)}°</text><text class="ico" x="${x(i)}" y="${y(h.temp) - 1.8 * rem}" text-anchor="middle">${esc(h.icon)}</text>` : "").join("");
+    $("#wx-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block"><line class="grid" x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}"/>${bars}${line}${labels}</svg>`;
     $("#wx-days").innerHTML = (w.daily || []).map((d, i) => {
       const dt = new Date(d.date + "T12:00");
-      const t = (s) => new Date(s).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      return `<div class="wx-day"><div class="d"><span>${i === 0 ? "Today" : dt.toLocaleDateString([], { weekday: "short" })}</span><span class="muted">${dt.getDate()}</span></div><div class="i">${esc(d.icon)}</div><div class="muted lbl">${esc(d.label)}</div><span class="hl"><b>${esc(d.hi)}°</b><small>${esc(d.lo)}°</small>${d.pop ? `<small>☔ ${esc(d.pop)}%</small>` : ""}</span><div class="s">↑ ${t(d.sunrise)} · ↓ ${t(d.sunset)}</div></div>`;
+      const t = (s) => { const d = new Date(s), h = d.getHours(); return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}${h < 12 ? "a" : "p"}`; };
+      return `<div class="wx-day${i === 0 ? " today" : ""}"><div class="d"><span>${i === 0 ? "Today" : dt.toLocaleDateString([], { weekday: "short" })}</span><span class="muted">${dt.getDate()}</span></div><div class="i">${esc(d.icon)}</div><div class="muted lbl">${esc(d.label)}</div><span class="hl"><b>${esc(d.hi)}°</b><small>${esc(d.lo)}°</small>${d.pop ? `<small>☔ ${esc(d.pop)}%</small>` : ""}</span><div class="s">☀ ${t(d.sunrise)} – ${t(d.sunset)}</div></div>`;
     }).join("");
   }
 
