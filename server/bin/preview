@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Serve another checkout of the wall (a git worktree of an older or newer UI) on a second port, against the LIVE
+# data, so two versions can be compared side by side without touching the wall:  preview ~/dev/hermdbw-ui/ui-v1
+# Then open http://<server>:8471/ next to http://<server>:8470/. Ctrl-C stops it.
+set -euo pipefail
+tree="${1:?usage: preview <checkout dir> [port]}"; port="${2:-8471}"
+live="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+[[ -f "$tree/server/serve.py" ]] || { echo "no server/serve.py under $tree"; exit 1; }
+echo "serving $tree/server/web on :$port with data from $live/data  (Ctrl-C to stop)"
+exec env HERMDBW_DATA="$live/data" PORT="$port" "$live/.venv/bin/python" "$tree/server/serve.py"
