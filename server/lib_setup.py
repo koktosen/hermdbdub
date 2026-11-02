@@ -85,7 +85,8 @@ def cloudinit(state: dict) -> dict:
     """First-boot files from the answers (Raspberry Pi OS Trixie+ cloud-init)."""
     a = state.get("answers", {})
     pw = a.get("pi_password", "")
-    h = subprocess.run(["openssl", "passwd", "-6", pw], capture_output=True, text=True).stdout.strip() if pw else "!"
+    # password goes in on stdin, never on the command line (argv is readable by every local process)
+    h = subprocess.run(["openssl", "passwd", "-6", "-stdin"], input=pw + "\n", capture_output=True, text=True, timeout=15).stdout.strip() if pw else "!"
     user = a.get("pi_user", "wall")
     user_data = f"""#cloud-config
 hostname: {a.get('pi_hostname', 'wall')}
@@ -155,7 +156,10 @@ def apply(state: dict) -> dict:
     with open(tmp, "w") as f: yaml.dump(cfg, f)
     tmp.chmod(0o600); tmp.replace(CONFIG)
     py = ROOT / ".venv/bin/python"; py = py if py.exists() else Path(sys.executable)
-    r = subprocess.run([str(py), str(ROOT / "collectors/run_all.py"), "calendar", "weather", "markets", "rss", "fng", "ops"],
-                       cwd=ROOT / "collectors", capture_output=True, text=True, env={**os.environ, "HERMDBW_CONFIG": str(CONFIG)})
+    try:
+        r = subprocess.run([str(py), str(ROOT / "collectors/run_all.py"), "calendar", "weather", "markets", "rss", "fng", "ops"],
+                           cwd=ROOT / "collectors", capture_output=True, text=True, env={**os.environ, "HERMDBW_CONFIG": str(CONFIG)}, timeout=240)
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "collectors took over 4 minutes — a calendar or feed link is not answering", "config": str(CONFIG)}
     status = json.loads((DATA / "status.json").read_text()).get("collectors", {}) if (DATA / "status.json").exists() else {}
     return {"ok": r.returncode == 0, "collectors": status, "config": str(CONFIG)}

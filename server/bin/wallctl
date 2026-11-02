@@ -44,7 +44,7 @@ def redact(url: str) -> str:
 
 
 def refresh(*names) -> dict:
-    r = subprocess.run([str(ROOT / ".venv/bin/python"), str(ROOT / "collectors/run_all.py"), *names],
+    r = subprocess.run([str(ROOT / ".venv/bin/python"), str(ROOT / "collectors/run_all.py"), *names], timeout=300,
                        cwd=ROOT / "collectors", capture_output=True, text=True)
     status = json.loads((ROOT / "data/status.json").read_text()).get("collectors", {})
     return {n: status.get(n, {"ok": False, "error": "not run"}) for n in (names or status)}
@@ -134,7 +134,7 @@ def cmd_location(a):
 
 
 def cmd_set(a):
-    allowed = {"rotate_seconds": int, "calendar_days": int, "timezone": str, "brief_window": "list",
+    allowed = {"rotate_seconds": int, "calendar_days": int, "timezone": str, "brief_window": "list", "hermes_brief_job": str, "agent_name": str,
                "pages": "list", "rotate_pages": "list", "feed_columns": "list", "dock_tiles": "list", "marquees": "list", "week_days": int}
     layout_keys = {"pages", "rotate_pages", "feed_columns", "dock_tiles", "marquees", "week_days"}   # these live under layout:
     if a.key not in allowed: print(f"key must be one of {sorted(allowed)}"); return 1

@@ -52,7 +52,7 @@ def comfy(endpoints: list) -> list:
 def services(names: list) -> dict:
     if not names:
         return {}
-    r = subprocess.run(["systemctl", "--user", "is-active", *names], capture_output=True, text=True)
+    r = subprocess.run(["systemctl", "--user", "is-active", *names], capture_output=True, text=True, timeout=15)
     return dict(zip(names, r.stdout.split()))
 
 

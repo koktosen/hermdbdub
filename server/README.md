@@ -11,7 +11,7 @@ with Python 3.11+ (not on the display Pi). Index: [`../README.md`](../README.md)
 bash install.sh                       # idempotent: venv, config.yaml (from the example), systemd --user units, wallctl. Re-run after git pull.
 systemctl --user status hermdbw-web hermdbw-collect.timer hermdbw-ops.timer hermdbw-xapi.timer
 journalctl --user -u hermdbw-collect -n 50
-curl -s localhost:8470/healthz | jq .collectors   # per-collector ok / error
+curl -s localhost:8470/healthz                    # 200 {"ok":true} or 503 with "failed"/"stale" collector names
 cd collectors && ../.venv/bin/python run_all.py   # run everything now; exit 1 if any collector failed
 ```
 Units (all `systemd --user`, so `loginctl enable-linger` is set by the installer):
@@ -45,12 +45,18 @@ One failing source never blanks the wall: errors land in the JSON and in the pag
 | | |
 |---|---|
 | `GET /` | the page; `?page=feed`, `?rotate=0` (seconds; overrides config), `?takeover=1` (open the brief overlay silently), `?debug=1` |
-| `GET /data/<name>.json`, `/data/brief.mp3` | collector output, `Cache-Control: no-store` |
-| `GET /healthz` | = `status.json` |
-| `GET\|POST /api/trigger?what=brief\|dismiss` | start / stop the full-screen brief; the page polls every 5 s |
-| `POST /api/alert` JSON `{title, body?, image?, level?: info\|warn\|urgent, ttl_minutes?, flash_seconds?}` | flash alert; `GET /api/alert` lists, `?dismiss=ID`, `?clear=1` |
+| `GET /data/<name>.json`, `/data/brief.mp3` | collector output (only the files the page uses; `setup.json`, dotfiles and listings are never served), `Cache-Control: no-store` |
+| `GET /healthz` | 200 `{"ok": true}` when every collector ran recently and succeeded, else 503 with `failed` / `stale` names |
+| `GET\|POST /api/trigger?what=brief\|dismiss` † | start / stop the full-screen brief; the page polls every 5 s |
+| `POST /api/alert` † JSON `{title, body?, image?, level?: info\|warn\|urgent, ttl_minutes?, flash_seconds?}` | flash alert; `GET /api/alert` lists (open), `?dismiss=ID` †, `?clear=1` † |
+| `/api/setup…` † | the setup page's API (see `lib_setup.py`) |
 
-Images for alerts go under `web/img/alerts/` and are referenced as `img/alerts/<file>`.
+† **trusted callers only**: requests from the server itself (loopback), or any caller sending the token from
+`data/.api_token` (created 0600 on first start) as `X-Wall-Token: <token>` or `?token=<token>`. Everyone else gets 403.
+Bodies are capped at 64 KiB; `level` must be one of the three; `image` must name an existing file under
+`web/img/alerts/` (referenced as `img/alerts/<file>`). API errors are JSON `{"error": "…"}`.
+Collectors run with a 20 s socket timeout and the units have `TimeoutStartSec=240`, so a dead feed cannot wedge the
+timers; `status.json` is merged per collector (each entry carries `at`), not overwritten by whichever timer ran last.
 
 ## Configuration
 

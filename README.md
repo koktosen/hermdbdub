@@ -60,6 +60,13 @@ handful of things only you know (your city, Wi-Fi for the Pi, your calendar link
 with the exact commands for the Pi. (Prefer YAML? `server/config.yaml` is fully commented.) Open port 8470 to your
 LAN/tailnet if you run a firewall. The wall itself is `http://<server>:8470/` — just a web page.
 
+**Who can do what on that port.** Anyone who can reach it can *read* the wall and the data files it shows (events,
+weather, headlines — the same things that are on the TV). Changing anything — posting an alert, triggering the brief,
+the setup page and its API — is only allowed from the server itself (your agent, `wallctl`, the `hermdbw` command) or
+with the token the server writes to `server/data/.api_token` on first start. To finish setup from a phone, open
+`http://<server>:8470/setup?token=<that token>`; your agent can send you that link. Setup answers, passwords and
+calendar links are never served.
+
 **2. Wall (Raspberry Pi)**
 Flash Raspberry Pi OS **Lite** (32-bit for Pi 1/2, 64-bit for Pi 3 and newer) with Raspberry Pi Imager, enabling SSH
 and Wi-Fi in its settings, boot it, then:

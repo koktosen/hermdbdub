@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import pwd
 import shutil
 import socket
 import subprocess
@@ -198,10 +199,14 @@ def cmd_doctor(a):
     # collectors freshness
     st = ls.DATA / "status.json"
     if st.exists():
-        d = json.loads(st.read_text()); age = time.time() - os.path.getmtime(st)
-        bad = {k: v.get("error") for k, v in d.get("collectors", {}).items() if not v.get("ok")}
-        add("ok" if age < 900 else "fail", "collectors ran", f"{int(age // 60)} min ago", "systemctl --user status hermdbw-collect.timer")
-        for k, e in bad.items(): add("warn", f"collector {k}", str(e)[:90], "fix the source or remove it from config.yaml")
+        d = json.loads(st.read_text()); cols = d.get("collectors", {})
+        # status.json is merged by every timer, so judge each collector by its own timestamp (ops runs every minute)
+        ages = {k: time.time() - v["at_epoch"] for k, v in cols.items() if v.get("at_epoch")}
+        main_age = min((a for k, a in ages.items() if k in ("calendar", "weather", "markets")), default=None)
+        if main_age is None: add("fail", "collectors ran", "no timestamped run yet", "cd server/collectors && ../.venv/bin/python run_all.py")
+        else: add("ok" if main_age < 900 else "fail", "collectors ran", f"{int(main_age // 60)} min ago", "systemctl --user status hermdbw-collect.timer")
+        for k, v in cols.items():
+            if not v.get("ok"): add("warn", f"collector {k}", str(v.get("error"))[:90], "fix the source or remove it from config.yaml")
     else: add("fail", "collectors ran", "never", "cd server/collectors && ../.venv/bin/python run_all.py")
     cal = ls.DATA / "calendar.json"
     if cal.exists():
@@ -216,8 +221,9 @@ def cmd_doctor(a):
     for unit in ("hermdbw-web.service", "hermdbw-collect.timer", "hermdbw-ops.timer"):
         r = run(["systemctl", "--user", "is-active", unit]).stdout.strip()
         add("ok" if r == "active" else "fail", unit, r, f"systemctl --user enable --now {unit}")
-    if run(["loginctl", "show-user", os.environ.get("USER", ""), "-p", "Linger", "--value"]).stdout.strip() != "yes":
-        add("warn", "linger", "not enabled — services stop when you log out", f"loginctl enable-linger {os.environ.get('USER', '')}")
+    me = pwd.getpwuid(os.getuid()).pw_name
+    if run(["loginctl", "show-user", me, "-p", "Linger", "--value"]).stdout.strip() != "yes":
+        add("warn", "linger", "not enabled — services stop when you log out", f"loginctl enable-linger {me}")
     # firewall (best effort, no root)
     if shutil.which("ufw") and Path("/etc/ufw/ufw.conf").exists() and "ENABLED=yes" in Path("/etc/ufw/ufw.conf").read_text():
         add("warn", "firewall", "ufw is on — fine if the wall shows data; if the Pi can't load the page, allow it", f"sudo ufw allow from <lan or tailnet> to any port {port} proto tcp")

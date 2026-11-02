@@ -45,6 +45,7 @@ cat > "$UNIT_DIR/hermdbw-collect.service" <<UNIT
 Description=hermdbw collectors (calendar, weather, brief, markets, rss, xtrends, fng)
 [Service]
 Type=oneshot
+TimeoutStartSec=240
 WorkingDirectory=$HERE/collectors
 # xtrends is a no-op when x_api.trends is on (a comment on the ExecStart line itself would be passed as arguments)
 ExecStart=$PY $HERE/collectors/run_all.py calendar weather brief markets rss xtrends fng
@@ -64,6 +65,7 @@ cat > "$UNIT_DIR/hermdbw-ops.service" <<UNIT
 Description=hermdbw host-status collector
 [Service]
 Type=oneshot
+TimeoutStartSec=240
 WorkingDirectory=$HERE/collectors
 ExecStart=$PY $HERE/collectors/run_all.py ops
 UNIT
@@ -93,6 +95,7 @@ cat > "$UNIT_DIR/hermdbw-xapi.service" <<UNIT
 Description=hermdbw X API collector (trends / mentions / usage; metered)
 [Service]
 Type=oneshot
+TimeoutStartSec=240
 WorkingDirectory=$HERE/collectors
 ExecStart=$PY $HERE/collectors/run_all.py xapi
 UNIT
@@ -118,6 +121,7 @@ for old in hermdbw-xme.timer hermdbw-xme.service rpi-dashboard-web.service rpi-d
 done
 systemctl --user daemon-reload
 systemctl --user enable --now hermdbw-web.service hermdbw-collect.timer hermdbw-ops.timer hermdbw-xapi.timer
+systemctl --user restart hermdbw-web.service   # enable --now is a no-op when it is already running; re-runs must pick up code changes
 systemctl --user start hermdbw-collect.service hermdbw-ops.service || true
 loginctl enable-linger "$USER" >/dev/null 2>&1 || true
 

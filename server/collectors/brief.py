@@ -34,12 +34,14 @@ def synth(text: str, voice: str | None) -> dict | None:
         return prev
     with tempfile.TemporaryDirectory() as td:
         wav = Path(td) / "brief.wav"
+        mp3 = Path(td) / "brief.mp3"
         subprocess.run(["piper", "--model", str(VOICE), "--sentence-silence", "0.4", "--output_file", str(wav)],
-                       input=speakable(text), text=True, check=True, capture_output=True)
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "64k",
-                        str(DATA / "brief.mp3")], check=True)
+                       input=speakable(text), text=True, check=True, capture_output=True, timeout=180)
+        subprocess.run(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "64k",
+                        str(mp3)], check=True, timeout=120)
         dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
-                                    str(DATA / "brief.mp3")], capture_output=True, text=True).stdout.strip() or 0)
+                                    str(mp3)], capture_output=True, text=True, timeout=30).stdout.strip() or 0)
+        os.replace(mp3, DATA / "brief.mp3")   # never let the kiosk fetch a half-written file
     info = {"sha1": digest, "audio": "data/brief.mp3", "duration_s": round(dur, 1)}
     STAMP.write_text(json.dumps(info))
     return info

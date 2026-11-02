@@ -4,7 +4,11 @@
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   let state = { answers: {}, sources: {}, missing: [] };
-  const api = (path, body) => fetch(`/api/setup${path}`, body ? { method: "POST", headers: { "Content-Type": "application/json", "X-Source": "browser" }, body: JSON.stringify(body) } : {}).then((r) => r.json());
+  // From another machine (a phone on the tailnet) the page must be opened from the link that carries the token.
+  const token = new URLSearchParams(location.search).get("token");
+  const headers = { "Content-Type": "application/json", "X-Source": "browser", ...(token ? { "X-Wall-Token": token } : {}) };
+  const api = (path, body) => fetch(`/api/setup${path}`, body ? { method: "POST", headers, body: JSON.stringify(body) } : { headers })
+    .then(async (r) => { if (r.ok) return r.json(); throw new Error(r.status === 403 ? "This page only works from the server itself, or from the link your assistant gives you (it carries the access token)." : `${r.status} ${await r.text()}`); });
 
   const SOURCE_KEY = { tailnet_kind: "tailnet", tailnet_login_server: "tailnet", rss_text: "rss_feeds", city: "location" };
   const REQUIRED = new Set(["pi_model", "pi_hostname", "pi_password", "wifi_ssid", "city"]);
@@ -86,7 +90,10 @@
   // finish
   $("#apply").addEventListener("click", async () => {
     $("#apply").disabled = true; $("#apply").textContent = "Building…";
-    const r = await api("/apply", {}); const ci = await api("/cloudinit"); const a = state.answers;
+    let r, ci;
+    try { r = await api("/apply", {}); ci = await api("/cloudinit"); }
+    catch (e) { $("#apply").disabled = false; $("#apply").textContent = "Finish"; const res = $("#result"); res.hidden = false; res.innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
+    const a = state.answers;
     const bad = Object.entries(r.collectors || {}).filter(([, v]) => !v.ok);
     const res = $("#result"); res.hidden = false;
     res.innerHTML = `<h3>${r.ok ? "✓ Your wall is configured on this computer." : "Configured, with warnings."}</h3>
@@ -106,5 +113,5 @@
     $("#apply").textContent = "Saved"; res.scrollIntoView({ behavior: "smooth" });
   });
 
-  api("").then((s) => { state = s; fill(); });
+  api("").then((s) => { state = s; fill(); }).catch((e) => { const res = $("#result"); res.hidden = false; res.innerHTML = `<p class="bad">${esc(e.message)}</p>`; });
 })();
