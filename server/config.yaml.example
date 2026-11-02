@@ -37,6 +37,10 @@ brief_window: [7, 11]                 # local hours during which the brief card 
 markets:
   crypto: [bitcoin, ethereum, solana, hedera-hashgraph, ripple, decentraland]   # CoinGecko ids (logos are cached locally)
   stocks: [SPY, QQQ, NVDA, AMD, AAPL, MSFT, GOOGL, AMZN, META, TSLA]            # Yahoo Finance tickers
+  movers: 10                         # today's N biggest gainers and N biggest losers (Yahoo screens) for the tape line
+# away_places: [Lakeview, Springfield, Fairview]   # the dock's "next hours" tile shows one of these (a different one each day)
+#                                     when no trip is coming up; a trip (POST /api/trip, or "flight to X" on the calendar
+#                                     within 7 days) shows the destination instead. Names are geocoded once and cached.
 rss_feeds:                           # any RSS/Atom feed; newest headlines per feed
   - {name: Hacker News, url: "https://hnrss.org/frontpage"}
   - {name: Ars Technica, url: "https://feeds.arstechnica.com/arstechnica/index"}
@@ -73,14 +77,16 @@ layout:
   rotate_pages: [calendar, feed, weather]
   ticker_rows: [crypto, stocks]      # rows at the top of Feed
   feed_columns: [headlines, xtrends] # Feed columns: headlines | xtrends | xme | brief
-  dock_tiles: [upnext, fng, hours, host]   # dock on every page: up-next events | crypto Fear & Greed | next hours | host status
+  dock_tiles: [upnext, hours, host]  # dock on every page: up-next events | next hours (away place or home) | host status;
+                                     # add fng for a crypto Fear & Greed tile (it is on the Feed crypto row regardless)
   marquees: [ticker, news]           # tape lines under the dock (hidden on Feed, which shows the full versions)
+  tape: movers                       # the markets tape: movers (today's biggest gainers + losers) | holdings (your crypto + stocks)
   marquee_speed: 1.0                        # tape speed multiplier (1.0 ≈ a slow read; 1.5 is the old pace)
   sparklines: true                          # tiny 24 h lines on the ticker tiles
   header_outlook: false                     # 5-day strip in the header (it is on the weather page anyway)
   header_moon: true                         # moon phase in the header
-  # dock_tiles_by_page:                     # per-page override of dock_tiles; default drops upnext on calendar, hours on weather
-  #   calendar: [hours, host]
-  #   feed: [upnext, fng, hours, host]
-  #   weather: [upnext, fng, host]
+  # dock_tiles_by_page:                     # per-page override of dock_tiles; by default calendar drops upnext (it has the
+  #   calendar: [hours, host]               # hero) and weather drops hours only when the tile would repeat home weather
+  #   feed: [upnext, hours, host]
+  #   weather: [upnext, host]
   week_days: 5                       # day columns on the Calendar page

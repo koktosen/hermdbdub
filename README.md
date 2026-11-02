@@ -22,14 +22,17 @@ Electron, no build step, and no API keys for the basics.
   chores), must-not-miss all-day items such as payroll or deadlines flagged in the agenda, the grid and a reminder
   strip under the countdown, today's agenda that keeps pace with the clock (finished events slide off the top) and rolls into the next
   days, and a five-day grid merging every iCal feed you give it (Google, Proton, iCloud, Outlook, holidays…), each in its own colour.
-- **Feed** — crypto and stock tickers with 24 h change and sparklines, headlines from your RSS feeds, and what's trending
-  on X from your own account.
+- **Feed** — crypto and stock tickers with 24 h change and sparklines (crypto Fear & Greed rides on the crypto row),
+  headlines from your RSS feeds, and what's trending on X from your own account.
 - **Weather** — current conditions on a frosted-glass panel over a photo that changes with the weather and time of day,
   a 24-hour temperature and rain-chance chart, and a 7-day forecast with sunrise and sunset.
-- **Dock on every page** — the next three events with countdowns (hidden on the calendar page, which has its own),
-  crypto Fear & Greed, the next eight hours, and a one-line health readout of the server; plus two tape lines
-  (markets, headlines).
-- **Header** — clock, freshness indicator, weather summary for your location, five-day outlook, moon phase.
+- **Dock on every page** — the next events with countdowns (hidden on the calendar page, which has its own), the next
+  eight hours **somewhere else** — the destination of a trip in the coming week (your agent posts it, or the wall spots
+  "flight to Austin" on the calendar), otherwise one of a few nearby towns you list, a different one each day — and a
+  one-line health readout of the server; plus two tape lines: today's biggest market movers (ten up, ten down) and
+  headlines.
+- **Header** — clock, freshness indicator, weather summary for your location, moon phase with its day and next phase date.
+  Weather icons are inline SVG, so they look the same on the TV as in your browser.
 - **Your agent** — a morning brief (text + spoken audio via [Piper](https://github.com/rhasspy/piper)) that takes the
   screen on a key press, and **flash alerts** your agent can post any time: "Lakeview trip in 7 days — 15° colder, pack
   a jacket", a birthday, a deadline collision, a weather warning — with a picture if it likes.
@@ -111,7 +114,7 @@ wallctl rss add "BBC" "https://…"     wallctl stocks set SPY QQQ NVDA
 wallctl crypto set bitcoin ripple     wallctl location set 39.74 -104.99 --name "Denver"
 wallctl refresh                       wallctl xusage
 ```
-Colours come from a colour-blind-safe palette; pass `--color` to override. Full reference: [`server/README.md`](server/README.md). New in the v2 look: `marquee_speed` (tape pace, 1.0 is a slow read), `sparklines`, `header_outlook` and `header_moon` (what the header carries), and `dock_tiles_by_page` (which dock tiles each page shows; by default the calendar page drops up-next and the weather page drops next-hours, since each already shows that).
+Colours come from a colour-blind-safe palette; pass `--color` to override. Full reference: [`server/README.md`](server/README.md). New in the v2 look: `marquee_speed` (tape pace, 1.0 is a slow read), `sparklines`, `header_outlook` and `header_moon` (what the header carries), `tape` (`movers` or `holdings` on the tape line), `away_places` (towns for the next-hours tile when no trip is near) and `dock_tiles_by_page` (which dock tiles each page shows; by default the calendar page drops up-next, which it already shows).
 
 ## Keys (any USB keyboard, numpad or macro pad on the Pi)
 

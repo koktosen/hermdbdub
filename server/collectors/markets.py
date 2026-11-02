@@ -64,9 +64,26 @@ def stocks(symbols: list) -> list:
     return out
 
 
+def movers(n: int = 10) -> dict:
+    """Yahoo's predefined day-gainers / day-losers screens (US equities, price >= $5, real volume). Feeds the tape."""
+    out = {}
+    for side, scr in (("up", "day_gainers"), ("down", "day_losers")):
+        try:
+            r = requests.get("https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved", timeout=15,
+                             headers=UA, params={"scrIds": scr, "count": n})
+            quotes = r.json()["finance"]["result"][0]["quotes"]
+            out[side] = [{"symbol": q["symbol"], "name": (q.get("shortName") or q.get("longName") or "")[:40],
+                          "price": round(q["regularMarketPrice"], 2), "change_24h": round(q["regularMarketChangePercent"], 2)}
+                         for q in quotes if q.get("regularMarketPrice") is not None][:n]
+        except Exception as e:
+            out[side] = []; out["error"] = f"{type(e).__name__}"
+    return out
+
+
 def main() -> None:
     m = load_config().get("markets") or {}
-    write_json("markets", {"crypto": crypto(m.get("crypto", [])), "stocks": stocks(m.get("stocks", []))})
+    write_json("markets", {"crypto": crypto(m.get("crypto", [])), "stocks": stocks(m.get("stocks", [])),
+                           "movers": movers(int(m.get("movers", 10)))})
 
 
 if __name__ == "__main__":

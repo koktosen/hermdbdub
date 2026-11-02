@@ -6,6 +6,7 @@ present the token in data/.api_token (generated on first start, mode 600) as an 
 Reads of the wall's own data files are open to whoever can reach the port (the kiosk needs them); only the files
 the page uses are served, never setup state or dotfiles."""
 import json
+from datetime import date
 import os
 import re
 import secrets
@@ -73,6 +74,7 @@ class Handler(SimpleHTTPRequestHandler):
         if p.startswith("/api/setup"): return self.setup_api
         if p.startswith("/api/trigger"): return self.trigger
         if p.startswith("/api/alert"): return self.alert
+        if p.startswith("/api/trip"): return self.trip
         if p == "/healthz": return self.healthz
         if p.startswith("/api/"): return lambda: self.send_error(404)
         return None
@@ -166,6 +168,42 @@ class Handler(SimpleHTTPRequestHandler):
             elif "clear" in q: alerts = []
             if mutating: write_atomic(path, alerts)
         self.send_json({"alerts": alerts})
+
+    def trip(self):
+        """The next trip, so the dock can show the destination's weather ahead of it (the weather collector reads this).
+        POST /api/trip  JSON {"destination","start"(YYYY-MM-DD),"end","lat"?,"lon"?,"timezone"?,"notes"?}   (trusted)
+        GET  /api/trip            → the stored trip (or {})
+        GET  /api/trip?clear=1    (trusted) forget it"""
+        path = DATA_DIR / "trip.json"
+        q = parse_qs(urlparse(self.path).query)
+        mutating = self.command == "POST" or "clear" in q
+        if mutating and not self.trusted():
+            return self.deny()
+        if self.command == "POST":
+            body = self.body_json()
+            if body is None: return
+            dest = str(body.get("destination") or "").strip()
+            if not dest: return self.send_error(400, "destination required")
+            try:
+                start, end = date.fromisoformat(str(body.get("start"))), date.fromisoformat(str(body.get("end")))
+            except ValueError:
+                return self.send_error(400, "start and end must be YYYY-MM-DD")
+            if end < start: return self.send_error(400, "end is before start")
+            trip = {"destination": dest[:40], "start": start.isoformat(), "end": end.isoformat(),
+                    "notes": str(body.get("notes") or "")[:200], "created": time.time()}
+            for k in ("lat", "lon"):
+                if body.get(k) is not None:
+                    try: trip[k] = float(body[k])
+                    except (TypeError, ValueError): return self.send_error(400, f"{k} must be a number")
+            if body.get("timezone"): trip["timezone"] = str(body["timezone"])[:40]
+            with _lock:
+                write_atomic(path, trip)
+            return self.send_json(trip)
+        if "clear" in q:
+            with _lock:
+                path.unlink(missing_ok=True)
+            return self.send_json({})
+        self.send_json(read_json(path, {}))
 
     def setup_api(self):
         """Setup API (trusted only): GET /api/setup · POST /api/setup {answers…} (header X-Source: agent|browser) ·

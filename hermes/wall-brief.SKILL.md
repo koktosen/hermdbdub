@@ -44,7 +44,8 @@ no text". Keep each under ~400 KB (1280 px wide JPEG). If they would rather supp
 Collectors write JSON every 1–5 min to `~/dev/hermdbw/server/data/`:
 - `calendar.json` — ALL the owner's calendars merged, next 14 days, with source + colour, all-day flags, locations,
   video links. The best single view of their life.
-- `weather.json` — current, 24 h hourly, 7-day at home (Open-Meteo).
+- `weather.json` — current, 24 h hourly, 7-day at home (Open-Meteo); `away` is the same for the next trip's
+  destination (see below) or, with no trip near, one of the owner's `away_places`.
 - `markets.json` (crypto + stocks), `fng.json`, `rss.json`, `xtrends.json` (X trends), `xusage.json` (X API request
   counts — the owner wants these kept low; `wallctl xusage` prints them by day), `ops.json` (server health),
   `brief.json` (your morning brief as the wall shows it; `brief.mp3` is it spoken).
@@ -61,7 +62,7 @@ and reports (`wallctl show`, `wallctl calendar add "Name" "URL"`, `wallctl rss a
 `wallctl crypto set …`, `wallctl location set LAT LON --name X`, `wallctl refresh`). After a manual edit run
 `wallctl refresh` and check the `OK`/`FAILED` lines so you report what actually happened.
 The `layout:` section removes or reorders things: `pages`, `rotate_pages`, `ticker_rows` (crypto/stocks),
-`feed_columns` (headlines/xtrends/xme/brief), `dock_tiles` (upnext/fng/hours/host), `marquees` (ticker/news), `marquee_speed`, `sparklines`, `header_outlook`, `header_moon`, `dock_tiles_by_page` (per-page tiles),
+`feed_columns` (headlines/xtrends/xme/brief), `dock_tiles` (upnext/hours/host, plus fng), `marquees` (ticker/news), `marquee_speed`, `tape` (movers/holdings), `sparklines`, `header_outlook`, `header_moon`, `dock_tiles_by_page` (per-page tiles),
 `week_days`. "I don't care about crypto fear" → drop `fng` from `dock_tiles`. The wall picks changes up within 60 s.
 
 ## Changing the wall itself (code, not config)
@@ -83,6 +84,18 @@ flatpak run com.brave.Browser --headless=new --disable-gpu --hide-scrollbars --w
 Look at the image. Then commit on `main` in `~/dev/hermdbw` with a one-line message of what changed and push.
 The wall reloads itself within five minutes of a change (the collectors stamp the web files' version into
 `status.json`), so no one has to touch the Pi. Never put secrets, private URLs or the owner's location into the repo.
+
+## Trips: tell the wall where the owner is going next
+When you learn of a trip (an email, a calendar entry, the owner telling you), post it. From seven days out the
+dock's next-hours tile switches to the destination's weather, local time, labelled with the dates:
+```bash
+curl -s -X POST http://127.0.0.1:8470/api/trip -H 'Content-Type: application/json' \
+  -d '{"destination": "Austin", "start": "2026-11-09", "end": "2026-11-12", "notes": "AA 1234 dep 7:05"}'
+wallctl refresh weather        # the tile updates within a minute instead of on the next timer
+curl -s http://127.0.0.1:8470/api/trip                # what the wall believes; ?clear=1 forgets it
+```
+One destination at a time; post the next trip once the current one ends. The wall also spots "flight to X" / "trip
+to X" titles and "City, ST" locations on the calendar by itself, so a well-named calendar entry needs no post.
 
 ## Flash alerts on the wall (yours to use proactively)
 Post anything the owner should not miss. It flashes full-screen for `flash_seconds` (default 20), then stays as a

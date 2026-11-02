@@ -7,6 +7,20 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="dark">
+<!-- Weather icons as inline SVG: emoji glyphs depend on whichever font a browser has, these do not. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="wx-clear-day" viewBox="0 0 64 64"><circle cx="32" cy="32" r="12" fill="#f7c948"/><path d="M32 6v9M32 49v9M6 32h9M49 32h9M13.6 13.6l6.4 6.4M44 44l6.4 6.4M13.6 50.4l6.4-6.4M44 20l6.4-6.4" stroke="#f7c948" stroke-width="4.5" stroke-linecap="round" fill="none"/></symbol>
+<symbol id="wx-clear-night" viewBox="0 0 64 64"><path fill="#e9e4c8" d="M38 6a24 24 0 1 0 20 38A22 22 0 0 1 38 6z"/></symbol>
+<symbol id="wx-partly-day" viewBox="0 0 64 64"><circle cx="22" cy="20" r="9" fill="#f7c948"/><path d="M22 3v6M22 31v3M5 20h6M33 20h6M10 8l4 4M30 8l-4 4M10 32l4-4" stroke="#f7c948" stroke-width="4" stroke-linecap="round" fill="none"/><path fill="#d3dae6" transform="translate(6 10) scale(2.4)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></symbol>
+<symbol id="wx-partly-night" viewBox="0 0 64 64"><path fill="#e9e4c8" transform="translate(8 2) scale(.55)" d="M38 6a24 24 0 1 0 20 38A22 22 0 0 1 38 6z"/><path fill="#d3dae6" transform="translate(6 10) scale(2.4)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></symbol>
+<symbol id="wx-overcast" viewBox="0 0 64 64"><path fill="#9aa6b8" transform="translate(10 0) scale(2.2)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path fill="#d3dae6" transform="translate(0 12) scale(2.4)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></symbol>
+<symbol id="wx-fog" viewBox="0 0 64 64"><path fill="#d3dae6" transform="translate(2 -2) scale(2.3)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M12 50h40M18 58h28" stroke="#b9c3d2" stroke-width="4" stroke-linecap="round" fill="none"/></symbol>
+<symbol id="wx-drizzle" viewBox="0 0 64 64"><path fill="#d3dae6" transform="translate(2 -4) scale(2.3)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M22 48l-2 6M32 48l-2 6M42 48l-2 6" stroke="#6fb1ff" stroke-width="4" stroke-linecap="round" fill="none"/></symbol>
+<symbol id="wx-rain" viewBox="0 0 64 64"><path fill="#d3dae6" transform="translate(2 -4) scale(2.3)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path d="M22 46l-4 12M33 46l-4 12M44 46l-4 12" stroke="#6fb1ff" stroke-width="4" stroke-linecap="round" fill="none"/></symbol>
+<symbol id="wx-snow" viewBox="0 0 64 64"><path fill="#d3dae6" transform="translate(2 -4) scale(2.3)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><g fill="#e6f4ff"><circle cx="22" cy="50" r="3"/><circle cx="32" cy="57" r="3"/><circle cx="42" cy="50" r="3"/></g></symbol>
+<symbol id="wx-storm" viewBox="0 0 64 64"><path fill="#9aa6b8" transform="translate(2 -6) scale(2.3)" d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><path fill="#ffd34d" d="M35 36l-10 14h7l-3 11 11-15h-7z"/></symbol>
+<symbol id="wx-unknown" viewBox="0 0 64 64"><circle cx="32" cy="32" r="21" fill="none" stroke="#9aa6b8" stroke-width="4"/><circle cx="32" cy="32" r="4" fill="#9aa6b8"/></symbol>
+</defs></svg>
 <header id="topbar">
   <div id="clock"><span id="time">--:--</span><span id="date">loading</span><span id="fresh" class="fresh"><i></i><span>updating…</span></span></div>
   <div id="weather-strip" class="muted">weather: not configured</div>

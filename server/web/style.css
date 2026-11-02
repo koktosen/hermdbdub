@@ -162,6 +162,9 @@ body.init .page, .page.settle { transition: none; }
 .tick svg { grid-row: 2; width: 2.2rem; height: 1rem; justify-self: end; }
 .tick svg path { fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linejoin: round; }
 .tick.up svg path { stroke: var(--good); } .tick.down svg path { stroke: var(--critical); }
+/* crypto Fear & Greed rides on the crypto row (it is about crypto, and the dock has better uses) */
+.tick.fng { flex: .9; } .tick.fng .chg { color: var(--ink); font-weight: 700; } .tick.fng .chg small { font-weight: 400; color: var(--ink-2); font-size: var(--t1); margin-left: .25rem; }
+.tick.fng .gauge { grid-column: 1 / -1; grid-row: 2; margin-top: .3rem; }
 body.no-sparklines .tick svg { display: none; }
 .feed-cols { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: var(--gap); min-height: 0; }
 .feed-col { min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
@@ -271,4 +274,7 @@ body.has-alerts #mq-news { visibility: hidden; }   /* the banner sits exactly ov
 
 /* Emoji glyphs always come from the colour emoji font. Without this, a text font that happens to carry the
    same code points (DejaVu Sans has monochrome moon phases) wins on some machines and the icons go black-and-white. */
-#moon .mi, #weather-strip .ico, .wx-big #wx-icon, .wx-day .i, .mini .hours span:nth-child(2), #wx-chart text.ico { font-family: var(--emoji); }
+#moon .mi, .ico { font-family: var(--emoji); }
+/* SVG weather icons (index.html sprite) size with the text around them */
+.wi { width: 1em; height: 1em; display: inline-block; vertical-align: -.12em; flex: none; }
+.mini .hours .wi { font-size: var(--t2); }

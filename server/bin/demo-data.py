@@ -31,16 +31,28 @@ w("calendar", {"timezone": str(tz), "sources": [{"name": k, "color": v, "count":
 
 icons = {0: ("Clear", "☀️"), 2: ("Partly cloudy", "⛅"), 3: ("Overcast", "☁️"), 61: ("Light rain", "🌦️"), 80: ("Showers", "🌧️")}
 codes = [3, 3, 2, 2, 0, 0, 0, 2, 61, 61, 80, 3, 3, 2, 0, 0, 0, 0, 2, 2, 3, 3, 2, 0]
-hourly = [{"time": iso(now.replace(minute=0) + timedelta(hours=i)), "temp": 58 + round(8 * __import__("math").sin((i - 4) / 24 * 6.28)), "pop": [5, 5, 10, 10, 0, 0, 0, 10, 55, 60, 70, 20, 15, 10, 0, 0, 0, 0, 5, 5, 10, 10, 5, 0][i], "icon": icons[codes[i]][1]} for i in range(24)]
+hl = lambda t: f"{t.hour % 12 or 12}{'a' if t.hour < 12 else 'p'}"
+hourly = [{"time": iso(t), "epoch": t.timestamp(), "hour": hl(t), "temp": 58 + round(8 * __import__("math").sin((i - 4) / 24 * 6.28)), "pop": [5, 5, 10, 10, 0, 0, 0, 10, 55, 60, 70, 20, 15, 10, 0, 0, 0, 0, 5, 5, 10, 10, 5, 0][i], "code": codes[i], "is_day": 6 <= t.hour < 18, "icon": icons[codes[i]][1]}
+          for i, t in ((i, now.replace(minute=0) + timedelta(hours=i)) for i in range(24))]
 daily = [{"date": (today + timedelta(days=i)).strftime("%Y-%m-%d"), "hi": [66, 64, 70, 72, 68, 65, 67][i], "lo": [52, 51, 54, 55, 53, 50, 52][i], "pop": [10, 60, 5, 0, 20, 40, 10][i],
-          "label": icons[[2, 61, 0, 0, 2, 80, 2][i]][0], "icon": icons[[2, 61, 0, 0, 2, 80, 2][i]][1], "sunrise": (today + timedelta(days=i, hours=6, minutes=48)).isoformat(timespec="minutes"), "sunset": (today + timedelta(days=i, hours=17, minutes=52)).isoformat(timespec="minutes")} for i in range(7)]
-w("weather", {"configured": True, "location": "Springfield", "current": {"temp": 63, "feels": 62, "label": "Partly cloudy", "icon": "⛅", "wind": 7, "humidity": 58, "is_day": 6 <= now.hour < 18, "code": 2}, "hourly": hourly, "daily": daily})
+          "code": [2, 61, 0, 0, 2, 80, 2][i], "label": icons[[2, 61, 0, 0, 2, 80, 2][i]][0], "icon": icons[[2, 61, 0, 0, 2, 80, 2][i]][1], "sunrise": (today + timedelta(days=i, hours=6, minutes=48)).isoformat(timespec="minutes"), "sunset": (today + timedelta(days=i, hours=17, minutes=52)).isoformat(timespec="minutes")} for i in range(7)]
+# the away place: the Lakeview trip on the calendar, 15° colder and wetter, two time zones east
+away_codes = [3, 61, 61, 80, 3, 3, 2, 2, 3, 61, 61, 3]
+away = {"name": "Lakeview", "reason": "calendar", "event": "Flight to Lakeview", "trip": {"start": (today + timedelta(days=5)).strftime("%Y-%m-%d"), "end": (today + timedelta(days=7)).strftime("%Y-%m-%d")},
+        "timezone": "demo/east", "utc_offset_seconds": 7200,
+        "current": {"temp": 47, "feels": 42, "label": "Light rain", "icon": "🌦️", "wind": 14, "humidity": 88, "is_day": True, "code": 61},
+        "hourly": [{"time": iso(t + timedelta(hours=2)), "epoch": t.timestamp(), "hour": hl(t + timedelta(hours=2)), "temp": [47, 46, 46, 45, 45, 44, 44, 43, 43, 44, 45, 46][i], "pop": [40, 60, 65, 70, 30, 20, 10, 10, 30, 60, 65, 30][i], "code": away_codes[i], "is_day": 6 <= (t.hour + 2) % 24 < 18, "icon": icons[away_codes[i]][1]}
+                   for i, t in ((i, now.replace(minute=0) + timedelta(hours=i)) for i in range(12))],
+        "daily": daily[:3]}
+w("weather", {"configured": True, "location": "Springfield", "current": {"temp": 63, "feels": 62, "label": "Partly cloudy", "icon": "⛅", "wind": 7, "humidity": 58, "is_day": 6 <= now.hour < 18, "code": 2}, "hourly": hourly, "daily": daily, "away": away})
 
 spark = lambda base, drift: [round(base * (1 + drift * i / 40 + random.uniform(-0.02, 0.02)), 4) for i in range(42)]
 crypto = [("BTC", "Bitcoin", 64250, 1.8), ("ETH", "Ethereum", 3120, -0.9), ("SOL", "Solana", 142.3, 3.4), ("HBAR", "Hedera", 0.0812, -2.1), ("XRP", "XRP", 0.61, 0.4), ("MANA", "Decentraland", 0.42, -1.2)]
 stocks = [("SPY", 512.4, 0.6), ("QQQ", 441.2, 0.9), ("NVDA", 118.6, 2.3), ("AMD", 162.1, -1.1), ("AAPL", 189.3, 0.2), ("MSFT", 415.8, 0.7), ("GOOGL", 171.2, -0.8), ("AMZN", 182.4, 1.4), ("META", 498.9, -0.3), ("TSLA", 238.7, 3.1)]
 w("markets", {"crypto": [{"symbol": s, "name": n, "price": p, "change_24h": c, "spark": spark(p, c / 100), "logo": None} for s, n, p, c in crypto],
-              "stocks": [{"symbol": s, "price": p, "change_24h": c, "spark": spark(p, c / 100)[:5]} for s, p, c in stocks]})
+              "stocks": [{"symbol": s, "price": p, "change_24h": c, "spark": spark(p, c / 100)[:5]} for s, p, c in stocks],
+              "movers": {"up": [{"symbol": s, "name": s, "price": p, "change_24h": c} for s, p, c in [("LUMN", 7.42, 18.3), ("RVLT", 23.1, 14.9), ("SFIX", 4.98, 12.2), ("APLD", 9.7, 11.4), ("NXT", 48.2, 9.8), ("PLUG", 3.21, 9.1), ("RIVN", 13.4, 8.7), ("OPEN", 2.84, 8.2), ("BBAI", 4.11, 7.9), ("IONQ", 31.6, 7.4)]],
+                         "down": [{"symbol": s, "name": s, "price": p, "change_24h": c} for s, p, c in [("LITE", 61.2, -16.8), ("TWST", 38.4, -13.1), ("ENPH", 72.9, -11.9), ("CHWY", 27.3, -10.4), ("DOCU", 55.1, -9.8), ("ETSY", 48.7, -9.2), ("ROKU", 66.0, -8.8), ("WOLF", 14.2, -8.1), ("PTON", 3.95, -7.6), ("CVNA", 142.3, -7.1)]]}})
 w("fng", {"value": 54, "label": "Neutral", "history": [48, 50, 52, 51, 55, 53, 54]})
 h = lambda t: (datetime.now(timezone.utc) - timedelta(hours=t)).isoformat(timespec="seconds")
 w("rss", {"feeds": [{"name": "Tech Daily", "items": [{"title": t, "link": "#", "time": h(i + 1)} for i, t in enumerate(["Open-source dashboard runs on a decade-old Pi", "Why every home server needs a wall display", "Piper TTS gets new voices", "Headscale 1.0 released", "The quiet return of the RSS reader", "A field guide to prompt-driven kiosks"])]},
@@ -52,6 +64,6 @@ w("ops", {"host": "server", "system": {"load1": 0.8, "load5": 0.7, "cpus": 8, "u
 w("xusage", {"local": {"today": 2, "month": 41}, "official": {"project_usage": "41", "cap": "3000000", "reset_day": 1}})
 w("status", {"collectors": {k: {"ok": True, "ms": 120} for k in ["calendar", "weather", "brief", "markets", "rss", "xtrends", "fng", "ops"]},
              "config": {"rotate_seconds": 45, "timezone": str(tz), "brief_window": [5, 7], "pages": ["calendar", "feed", "weather"], "rotate_pages": ["calendar", "feed", "weather"], "ticker_rows": ["crypto", "stocks"],
-                        "feed_columns": ["headlines", "xtrends"], "dock_tiles": ["upnext", "fng", "hours", "host"], "marquees": ["ticker", "news"], "week_days": 5, "agent_name": "Hermes", "location_image": "img/location.jpg"}})
+                        "feed_columns": ["headlines", "xtrends"], "dock_tiles": ["upnext", "hours", "host"], "marquees": ["ticker", "news"], "tape": "movers", "week_days": 5, "agent_name": "Hermes", "location_image": "img/location.jpg"}})
 (out / "alerts.json").write_text("[]"); (out / "trigger.json").write_text(json.dumps({"what": "dismiss", "ts": time.time()}))
 print(f"demo data written to {out}")

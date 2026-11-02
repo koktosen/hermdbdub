@@ -28,8 +28,8 @@ Units (all `systemd --user`, so `loginctl enable-linger` is set by the installer
 | collector | source | output |
 |---|---|---|
 | `cal_feeds.py` | every `calendars[].url` (iCal/ICS/webcal), recurrences expanded for `calendar_days` | `calendar.json` |
-| `weather.py` | Open-Meteo (no key): current, 24 h hourly, 7-day | `weather.json` |
-| `markets.py` | CoinGecko (crypto + 7-day sparkline, logos cached to `web/logos/`), Yahoo Finance chart endpoint (stocks) | `markets.json` |
+| `weather.py` | Open-Meteo (no key): current, 24 h hourly, 7-day at home; plus `away` — the same for the next trip's destination (`data/trip.json` from `POST /api/trip`, or a "flight to X" / "City, ST" location on the calendar within 7 days and ≥ 80 km away) or, failing that, one of `away_places` rotated daily. Place names go through Open-Meteo's geocoder once (cached in `data/.geocache.json`) | `weather.json` |
+| `markets.py` | CoinGecko (crypto + 7-day sparkline, logos cached to `web/logos/`), Yahoo Finance chart endpoint (stocks), Yahoo's day-gainers / day-losers screens (`movers`) | `markets.json` |
 | `fng.py` | alternative.me crypto Fear & Greed | `fng.json` |
 | `rss.py` | `rss_feeds[]` via feedparser | `rss.json` |
 | `brief.py` | newest `## Response` from `~/.hermes/cron/output/<hermes_brief_job>/`, plus `brief.mp3` via Piper when the text changes | `brief.json`, `brief.mp3` |
@@ -49,6 +49,7 @@ One failing source never blanks the wall: errors land in the JSON and in the pag
 | `GET /healthz` | 200 `{"ok": true}` when every collector ran recently and succeeded, else 503 with `failed` / `stale` names |
 | `GET\|POST /api/trigger?what=brief\|dismiss` † | start / stop the full-screen brief; the page polls every 5 s |
 | `POST /api/alert` † JSON `{title, body?, image?, level?: info\|warn\|urgent, ttl_minutes?, flash_seconds?}` | flash alert; `GET /api/alert` lists (open), `?dismiss=ID` †, `?clear=1` † |
+| `POST /api/trip` † JSON `{destination, start, end (YYYY-MM-DD), lat?, lon?, timezone?, notes?}` | the next trip; the dock's next-hours tile shows its weather from 7 days out. `GET /api/trip` reads it, `?clear=1` † forgets it |
 | `/api/setup…` † | the setup page's API (see `lib_setup.py`) |
 
 † **trusted callers only**: requests from the server itself (loopback), or any caller sending the token from
