@@ -101,7 +101,7 @@
   }
   setInterval(tickClock, 1000); tickClock();
   // Countdowns and the Today anchor change once a minute: fire on the minute boundary, not on a drifting interval.
-  function everyMinute() { if (current === "calendar") renderCalendar(); }
+  function everyMinute() { if (current === "calendar") renderCalendar(); guarded("dock", renderBottomStrip); }
   setTimeout(() => { everyMinute(); setInterval(everyMinute, 60_000); }, 60_000 - (Date.now() % 60_000) + 50);
 
   // ---------- data ----------
@@ -426,7 +426,9 @@
     // The calendar page has its own Next-up hero, so the dock drops that tile there and the column gets the room.
     // The hours tile is the away place (next trip, or a nearby town) when the collector found one; only when it
     // falls back to home does the weather page drop it as a duplicate.
-    const w = data.weather || {}, away = w.away?.hourly?.length ? w.away : null;
+    // No trip near: cycle through the configured away places, one per minute, in config order.
+    const w = data.weather || {}, rot = (w.away_rotation || []).filter((p) => p.hourly?.length);
+    const away = w.away?.hourly?.length ? w.away : rot.length ? rot[Math.floor(Date.now() / 60000) % rot.length] : null;
     const byPage = data.config?.dock_tiles_by_page?.[current];
     const tiles = Array.isArray(byPage) ? byPage
       : layout("dock_tiles", ["upnext", "hours", "host"]).filter((k) => !((k === "upnext" && current === "calendar") || (k === "hours" && current === "weather" && !away)));

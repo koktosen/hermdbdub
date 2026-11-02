@@ -28,7 +28,7 @@ Units (all `systemd --user`, so `loginctl enable-linger` is set by the installer
 | collector | source | output |
 |---|---|---|
 | `cal_feeds.py` | every `calendars[].url` (iCal/ICS/webcal), recurrences expanded for `calendar_days` | `calendar.json` |
-| `weather.py` | Open-Meteo (no key): current, 24 h hourly, 7-day at home; plus `away` — the same for the next trip's destination (`data/trip.json` from `POST /api/trip`, or a "flight to X" / "City, ST" location on the calendar within 7 days and ≥ 80 km away) or, failing that, one of `away_places` rotated daily. Place names go through Open-Meteo's geocoder once (cached in `data/.geocache.json`) | `weather.json` |
+| `weather.py` | Open-Meteo (no key): current, 24 h hourly, 7-day at home; plus `away` — the same for the next trip's destination (`data/trip.json` from `POST /api/trip`, or a "flight to X" / "City, ST" location on the calendar within 7 days and ≥ 80 km away) or, failing that, `away_rotation`: every `away_places` entry, which the page cycles through once a minute. Place names go through Open-Meteo's geocoder once (cached in `data/.geocache.json`) | `weather.json` |
 | `markets.py` | CoinGecko (crypto + 7-day sparkline, logos cached to `web/logos/`), Yahoo Finance chart endpoint (stocks), Yahoo's day-gainers / day-losers screens (`movers`) | `markets.json` |
 | `fng.py` | alternative.me crypto Fear & Greed | `fng.json` |
 | `rss.py` | `rss_feeds[]` via feedparser | `rss.json` |

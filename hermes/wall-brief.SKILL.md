@@ -45,7 +45,7 @@ Collectors write JSON every 1–5 min to `~/dev/hermdbw/server/data/`:
 - `calendar.json` — ALL the owner's calendars merged, next 14 days, with source + colour, all-day flags, locations,
   video links. The best single view of their life.
 - `weather.json` — current, 24 h hourly, 7-day at home (Open-Meteo); `away` is the same for the next trip's
-  destination (see below) or, with no trip near, one of the owner's `away_places`.
+  destination (see below) or, with no trip near, `away_rotation`: the owner's `away_places`, cycled once a minute.
 - `markets.json` (crypto + stocks), `fng.json`, `rss.json`, `xtrends.json` (X trends), `xusage.json` (X API request
   counts — the owner wants these kept low; `wallctl xusage` prints them by day), `ops.json` (server health),
   `brief.json` (your morning brief as the wall shows it; `brief.mp3` is it spoken).

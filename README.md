@@ -28,7 +28,7 @@ Electron, no build step, and no API keys for the basics.
   a 24-hour temperature and rain-chance chart, and a 7-day forecast with sunrise and sunset.
 - **Dock on every page** — the next events with countdowns (hidden on the calendar page, which has its own), the next
   eight hours **somewhere else** — the destination of a trip in the coming week (your agent posts it, or the wall spots
-  "flight to Austin" on the calendar), otherwise one of a few nearby towns you list, a different one each day — and a
+  "flight to Austin" on the calendar), otherwise the towns you travel to most, cycling once a minute — and a
   one-line health readout of the server; plus two tape lines: today's biggest market movers (ten up, ten down) and
   headlines.
 - **Header** — clock, freshness indicator, weather summary for your location, moon phase with its day and next phase date.

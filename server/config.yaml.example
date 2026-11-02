@@ -38,7 +38,7 @@ markets:
   crypto: [bitcoin, ethereum, solana, hedera-hashgraph, ripple, decentraland]   # CoinGecko ids (logos are cached locally)
   stocks: [SPY, QQQ, NVDA, AMD, AAPL, MSFT, GOOGL, AMZN, META, TSLA]            # Yahoo Finance tickers
   movers: 10                         # today's N biggest gainers and N biggest losers (Yahoo screens) for the tape line
-# away_places: [Lakeview, Springfield, Fairview]   # the dock's "next hours" tile shows one of these (a different one each day)
+# away_places: [Lakeview, Springfield, Fairview]   # the dock's "next hours" tile cycles through these, one per minute,
 #                                     when no trip is coming up; a trip (POST /api/trip, or "flight to X" on the calendar
 #                                     within 7 days) shows the destination instead. Names are geocoded once and cached.
 rss_feeds:                           # any RSS/Atom feed; newest headlines per feed

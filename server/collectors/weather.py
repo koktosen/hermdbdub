@@ -164,25 +164,38 @@ def trip_from_calendar(home: dict, today: date) -> dict | None:
     return None
 
 
-def rotated_place(cfg: dict, today: date) -> dict | None:
-    places = [p for p in (cfg.get("away_places") or []) if isinstance(p, (str, dict))]
-    if not places:
-        return None
-    p = places[today.toordinal() % len(places)]
-    if isinstance(p, dict) and p.get("lat") is not None:
-        return {"name": str(p.get("name") or "away"), "reason": "rotation", "lat": p["lat"], "lon": p["lon"], "timezone": p.get("timezone", "auto")}
-    name = p if isinstance(p, str) else str(p.get("name") or "")
-    g = geocode(name)
-    return {"name": name, "reason": "rotation", **g} if g else None
+def rotation_places(cfg: dict) -> list:
+    """Every configured away place, geocoded; the page cycles through them once a minute when no trip is near."""
+    out = []
+    for p in cfg.get("away_places") or []:
+        if isinstance(p, dict) and p.get("lat") is not None:
+            out.append({"name": str(p.get("name") or "away"), "reason": "rotation", "lat": p["lat"], "lon": p["lon"], "timezone": p.get("timezone", "auto")})
+        else:
+            name = p if isinstance(p, str) else str(p.get("name") or "")
+            g = geocode(name)
+            if g:
+                out.append({"name": name, "reason": "rotation", **g})
+    return out
 
 
-def away(cfg: dict, home: dict) -> dict | None:
-    today = date.today()
-    place = trip_from_file(today) or trip_from_calendar(home, today) or rotated_place(cfg, today)
-    if not place:
-        return None
-    f = forecast(place["lat"], place["lon"], place.get("timezone") or "auto", hours=12, days=3)
+def with_forecast(place: dict, hours: int, days: int) -> dict:
+    f = forecast(place["lat"], place["lon"], place.get("timezone") or "auto", hours=hours, days=days)
     return {k: place[k] for k in ("name", "reason", "trip", "event", "notes", "admin1", "country") if place.get(k)} | f
+
+
+def away(cfg: dict, home: dict) -> dict:
+    """{"away": trip destination} when a trip is within a week, else {"away_rotation": [every away place]}."""
+    today = date.today()
+    trip = trip_from_file(today) or trip_from_calendar(home, today)
+    if trip:
+        return {"away": with_forecast(trip, 12, 3)}
+    places = []
+    for p in rotation_places(cfg):
+        try:
+            places.append(with_forecast(p, 12, 1))
+        except Exception:
+            continue                                # one town's forecast failing just drops it from the cycle
+    return {"away_rotation": places} if places else {}
 
 
 def main() -> None:
@@ -193,9 +206,7 @@ def main() -> None:
         return
     out = {"configured": True, "location": loc.get("name", "Home")} | forecast(loc["lat"], loc["lon"], cfg.get("timezone", "auto"))
     try:
-        a = away(cfg, loc)
-        if a:
-            out["away"] = a
+        out |= away(cfg, loc)
     except Exception as e:                      # the second place is a bonus; home weather never waits on it
         out["away_error"] = f"{type(e).__name__}"
     write_json("weather", out)
